@@ -1,0 +1,95 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-x64:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 配置 Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: 缓存 Rust 构建
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      - name: 校验 Tag 与应用版本
+        run: node scripts/check-version.mjs "${{ github.ref_name }}"
+
+      - name: 构建 Windows 应用
+        run: npm run tauri -- build --target x86_64-pc-windows-msvc
+
+      - name: 整理发布文件
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ github.ref_name }}"
+          $target = "src-tauri/target/x86_64-pc-windows-msvc/release"
+          $release = "release-assets"
+          New-Item -ItemType Directory -Path $release -Force | Out-Null
+
+          $app = Join-Path $target "pi-switch.exe"
+          if (-not (Test-Path $app)) {
+            throw "未找到主程序：$app"
+          }
+
+          $portableDir = Join-Path $release "Pi-Switch_$version`_windows-x64_portable"
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+          Copy-Item $app (Join-Path $portableDir "Pi-Switch.exe")
+          Copy-Item "README.md" (Join-Path $portableDir "README.md")
+          Compress-Archive -Path "$portableDir/*" -DestinationPath "$release/Pi-Switch_$version`_windows-x64_portable.zip" -CompressionLevel Optimal
+          Remove-Item $portableDir -Recurse -Force
+
+          $installer = Get-ChildItem (Join-Path $target "bundle/nsis") -Filter "*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "未找到 NSIS 安装包"
+          }
+          Copy-Item $installer.FullName "$release/Pi-Switch_$version`_windows-x64_setup.exe"
+
+          Get-ChildItem $release -File | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content "$release/SHA256SUMS.txt" -Encoding ascii
+
+      - name: 保存工作流构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pi-Switch-${{ github.ref_name }}-windows-x64
+          path: release-assets/*
+          if-no-files-found: error
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Pi Switch ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release-assets/*
+          fail_on_unmatched_files: true

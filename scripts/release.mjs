@@ -15,7 +15,10 @@ function git(args, options) {
   return run("git", args, options);
 }
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+function npm(args) {
+  const npmCli = process.env.npm_execpath;
+  return npmCli ? run(process.execPath, [npmCli, ...args]) : run("npm", args);
+}
 
 const input = process.argv[2];
 if (!input) {
@@ -44,7 +47,7 @@ try {
   const behind = git(["rev-list", "--count", `HEAD..origin/${branch}`], { capture: true });
   if (behind !== "0") throw new Error(`本地 ${branch} 落后于 origin/${branch}，请先拉取最新代码`);
 
-  run(npmCommand, ["version", version, "--no-git-tag-version", "--allow-same-version"]);
+  npm(["version", version, "--no-git-tag-version", "--allow-same-version"]);
 
   const tauriPath = "src-tauri/tauri.conf.json";
   const tauriConfig = JSON.parse(fs.readFileSync(tauriPath, "utf8"));
@@ -60,7 +63,7 @@ try {
   fs.writeFileSync(cargoPath, updatedCargo);
 
   run(process.execPath, ["scripts/check-version.mjs", tag]);
-  run(npmCommand, ["run", "build"]);
+  npm(["run", "build"]);
 
   git(["add", "package.json", "package-lock.json", tauriPath, cargoPath]);
   const staged = git(["diff", "--cached", "--name-only"], { capture: true });

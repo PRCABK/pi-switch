@@ -39,6 +39,28 @@ npm run tauri build
 
 独立程序位于 `src-tauri/target/release/pi-switch.exe`，NSIS 安装包位于 `src-tauri/target/release/bundle/nsis/`。
 
+## 通过 GitHub Tag 发布
+
+本地无需安装 Rust 或 Visual Studio。发布脚本会同步 `package.json`、`src-tauri/tauri.conf.json` 和 `src-tauri/Cargo.toml` 的版本，执行前端检查，然后提交版本、创建 Tag 并原子推送：
+
+```bash
+npm run release -- 0.2.0
+```
+
+PowerShell 也可以使用：
+
+```powershell
+./scripts/release.ps1 0.2.0
+```
+
+推送 `v*` Tag 后，`.github/workflows/release.yml` 会在 `windows-latest` 上构建并创建 GitHub Release，包含：
+
+- `Pi-Switch_vX.Y.Z_windows-x64_portable.zip`：便携版
+- `Pi-Switch_vX.Y.Z_windows-x64_setup.exe`：NSIS 安装包
+- `SHA256SUMS.txt`：SHA-256 校验文件
+
+仓库需要在 GitHub 的 **Settings → Actions → General → Workflow permissions** 中允许工作流写入仓库内容，否则无法创建 Release。
+
 ## 安全说明
 
 - API Key 推荐在 `models.json` 中使用 `$ENV_VAR` 引用，不建议保存明文。

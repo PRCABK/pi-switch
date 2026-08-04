@@ -9,18 +9,41 @@ const settings = reactive<UserSettings>(loadSettings());
 const info = ref<AppInfo | null>(null);
 const infoLoading = ref(false);
 
-// 模块级缓存：首次加载后，再次进入页面直接使用缓存，不再重复请求
-let cachedInfo: AppInfo | null = null;
+// 持久化缓存：首次加载后写入 localStorage，应用重启后直接读缓存，不再重新请求
+const INFO_CACHE_KEY = "pi-switch:env-info";
+
+function readCachedInfo(): AppInfo | null {
+  try {
+    const raw = localStorage.getItem(INFO_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as AppInfo) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheInfo(result: AppInfo) {
+  try {
+    localStorage.setItem(INFO_CACHE_KEY, JSON.stringify(result));
+  } catch { /* 忽略写入失败 */ }
+}
 
 function errorText(error: unknown): string {
   return typeof error === "string" ? error : error instanceof Error ? error.message : String(error);
 }
 
-async function loadInfo() {
+async function loadInfo(force = false) {
+  if (!force) {
+    const cached = readCachedInfo();
+    if (cached) {
+      info.value = cached;
+      return;
+    }
+  }
   infoLoading.value = true;
   try {
-    info.value = await api.getAppInfo();
-    cachedInfo = info.value;
+    const result = await api.getAppInfo();
+    info.value = result;
+    cacheInfo(result);
   } catch (error) {
     ElMessage.error(errorText(error));
   } finally {
@@ -40,13 +63,7 @@ function reset() {
   save();
 }
 
-onMounted(() => {
-  if (cachedInfo) {
-    info.value = cachedInfo;
-  } else {
-    loadInfo();
-  }
-});
+onMounted(() => loadInfo());
 </script>
 
 <template>
@@ -65,7 +82,7 @@ onMounted(() => {
       </div>
     </div>
     <div v-if="info" class="panel" style="max-width:820px;margin-top:18px">
-      <div class="panel-header"><h2>环境信息</h2><el-button size="small" :loading="infoLoading" @click="loadInfo">重新加载</el-button></div>
+      <div class="panel-header"><h2>环境信息</h2><el-button size="small" :loading="infoLoading" @click="loadInfo(true)">重新加载</el-button></div>
       <div class="panel-body"><el-descriptions :column="1" border><el-descriptions-item label="Pi 版本">{{ info.piVersion || "未检测到" }}</el-descriptions-item><el-descriptions-item label="Agent 目录"><span class="code">{{ info.agentDir }}</span></el-descriptions-item><el-descriptions-item label="默认模型配置"><span class="code">{{ info.modelsPath }}</span></el-descriptions-item><el-descriptions-item label="默认对话目录"><span class="code">{{ info.sessionsDir }}</span></el-descriptions-item></el-descriptions></div>
     </div>
   </section>

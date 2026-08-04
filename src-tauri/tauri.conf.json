@@ -26,7 +26,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "shortDescription": "Pi 模型与对话管理工具",
     "longDescription": "管理 Pi Coding Agent 的自定义模型配置和历史对话。"
   }

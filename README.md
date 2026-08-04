@@ -2,6 +2,9 @@
 
 一个类似 CC Switch 的独立桌面工具，用于管理 [Pi Coding Agent](https://pi.dev) 的自定义模型和历史对话。
 
+- 产品官网：<https://prcabk.github.io/pi-switch/>
+- 版本下载：<https://github.com/PRCABK/pi-switch/releases/latest>
+
 ## 功能
 
 - 可视化管理 `~/.pi/agent/models.json` 中的 Provider 和模型

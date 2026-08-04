@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Pi Switch 是一款面向 Pi Coding Agent 的独立桌面管理工具，可视化管理模型 Provider、导入 pi.dev 配置并浏览历史 Session。" />
+    <meta name="theme-color" content="#080b12" />
+    <meta property="og:title" content="Pi Switch — 管理你的 Pi 模型与对话" />
+    <meta property="og:description" content="一处管理 Provider、模型配置与历史 Session。轻量、安全、原生。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://prcabk.github.io/pi-switch/" />
+    <link rel="canonical" href="https://prcabk.github.io/pi-switch/" />
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+    <title>Pi Switch — Pi 模型与对话管理工具</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="site-header">
+      <div class="nav-shell">
+        <a class="brand" href="#top" aria-label="Pi Switch 首页">
+          <img src="assets/logo.svg" alt="" width="34" height="34" />
+          <span>Pi Switch</span>
+        </a>
+        <button class="menu-button" type="button" aria-label="打开菜单" aria-expanded="false" data-menu-button>
+          <span></span><span></span><span></span>
+        </button>
+        <nav class="navigation" aria-label="主导航" data-navigation>
+          <a href="#features">功能</a>
+          <a href="#sessions">对话</a>
+          <a href="#security">安全</a>
+          <a href="https://github.com/PRCABK/pi-switch" target="_blank" rel="noreferrer">GitHub</a>
+          <a class="nav-download" href="https://github.com/PRCABK/pi-switch/releases/latest" data-release-link>下载</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero section-shell">
+        <div class="hero-copy" data-reveal>
+          <a class="release-pill" href="https://github.com/PRCABK/pi-switch/releases/latest" data-release-link>
+            <span class="release-dot"></span>
+            <span data-version>最新版本</span>
+            <span class="pill-arrow">→</span>
+          </a>
+          <h1>让 Pi 的模型与对话<br /><span>清晰可控。</span></h1>
+          <p class="hero-lead">一个类似 CC Switch 的独立桌面工具。一处管理自定义 Provider、模型配置与历史 Session，不必手动翻找 JSONL。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/PRCABK/pi-switch/releases/latest" data-setup-link data-release-link>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.2 10.4 4v7.1H3V5.2Zm8.4-1.4L21 2.4v8.7h-9.6V3.8ZM3 12.1h7.4v7.1L3 18v-5.9Zm8.4 0H21v8.7l-9.6-1.4v-7.3Z"/></svg>
+              下载 Windows 版
+            </a>
+            <a class="button button-secondary" href="https://github.com/PRCABK/pi-switch" target="_blank" rel="noreferrer">
+              查看源代码
+              <span>↗</span>
+            </a>
+          </div>
+          <div class="hero-note"><span>✓</span> 开源免费　<span>✓</span> 本地数据　<span>✓</span> Tauri 原生应用</div>
+        </div>
+
+        <div class="product-stage" data-reveal>
+          <div class="stage-glow"></div>
+          <div class="app-window">
+            <div class="window-bar">
+              <div class="window-title"><img src="assets/logo.svg" alt="" /><span>Pi Switch</span></div>
+              <div class="window-controls"><i></i><i></i><i class="close"></i></div>
+            </div>
+            <div class="app-body">
+              <aside class="app-sidebar">
+                <div class="mini-brand"><img src="assets/logo.svg" alt="" /><strong>Pi Switch</strong></div>
+                <div class="side-link active"><span class="side-icon">⌁</span>模型管理</div>
+                <div class="side-link"><span class="side-icon">◌</span>对话管理</div>
+                <div class="side-link"><span class="side-icon">⚙</span>应用设置</div>
+              </aside>
+              <div class="app-main">
+                <div class="app-heading"><div><strong>模型管理</strong><small>管理 Pi 的自定义 Provider 和模型配置</small></div><button>从 pi.dev 导入</button></div>
+                <div class="path-line">配置文件：<span>~/.pi/agent/models.json</span></div>
+                <div class="app-grid">
+                  <div class="provider-list">
+                    <div class="provider-list-head"><b>Providers</b><span>＋ 新增</span></div>
+                    <div class="provider selected"><div><b>custom-provider</b><em>openai-responses</em></div><small>10 个自定义模型</small></div>
+                    <div class="provider"><div><b>deepseek</b><em>openai-completions</em></div><small>2 个自定义模型</small></div>
+                  </div>
+                  <div class="model-panel">
+                    <div class="model-head"><b>custom-provider</b><span>编辑</span></div>
+                    <div class="model-stats"><div><small>Base URL</small><code>api.example.com/v1</code></div><div><small>模型数量</small><strong>10</strong></div></div>
+                    <div class="model-table"><div class="table-row table-title"><span>模型 ID</span><span>上下文</span><span>推理</span></div><div class="table-row"><b>gpt-5.6-sol</b><span>272K</span><i>是</i></div><div class="table-row"><b>gpt-5.5</b><span>272K</span><i>是</i></div><div class="table-row"><b>claude-sonnet</b><span>200K</span><i>是</i></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="floating-card floating-model"><span class="float-icon">＋</span><div><strong>模型已导入</strong><small>gpt-5.5 · openai</small></div></div>
+          <div class="floating-card floating-safe"><span class="safe-check">✓</span><div><strong>配置已备份</strong><small>安全写入 models.json</small></div></div>
+        </div>
+      </section>
+
+      <section class="trust-strip">
+        <div class="section-shell trust-inner">
+          <span>为 Pi Coding Agent 而生</span>
+          <div class="tech-list"><b>TAURI 2</b><b>RUST</b><b>VUE 3</b><b>TYPE<span>SCRIPT</span></b></div>
+        </div>
+      </section>
+
+      <section class="feature-section section-shell" id="features">
+        <div class="section-heading" data-reveal><span class="eyebrow">MODEL MANAGEMENT</span><h2>模型配置，不再手动拼 JSON</h2><p>从 Provider 到模型元数据，将 Pi 的配置集中在清晰的界面中。</p></div>
+        <div class="feature-grid">
+          <article class="feature-card feature-large" data-reveal>
+            <div class="feature-copy"><span class="number">01</span><h3>可视化管理 Provider</h3><p>管理 Base URL、API 类型、Key 引用、自定义 Headers 和模型列表，同时保留 Pi 新版本引入的未知字段。</p><ul><li>新增、编辑与删除 Provider</li><li>支持 OpenAI、Anthropic 和 Google API</li><li>保存后通过 <code>pi --list-models</code> 验证</li></ul></div>
+            <div class="config-visual"><div class="config-top"><span>custom-provider</span><i>已连接</i></div><div class="config-line"><small>BASE URL</small><code>https://api.example.com/v1</code></div><div class="config-line"><small>API KEY</small><code>$CUSTOM_PROVIDER_API_KEY</code></div><div class="config-line"><small>API TYPE</small><code>openai-responses</code></div></div>
+          </article>
+          <article class="feature-card" data-reveal>
+            <div class="catalog-icon"><span>π</span><i>→</i><span>＋</span></div><span class="number">02</span><h3>从 pi.dev 一键导入</h3><p>搜索模型目录，读取 <b>Show configuration</b>，预览后合并到目标 Provider。`gpt5.5` 也能匹配 `gpt-5.5`。</p>
+          </article>
+          <article class="feature-card" data-reveal>
+            <div class="backup-visual"><span class="file back">JSON</span><span class="file front">JSON<small>✓</small></span></div><span class="number">03</span><h3>放心地修改配置</h3><p>写入前创建带时间戳的备份，再用临时文件替换；发生错误时自动恢复原配置。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="session-section" id="sessions">
+        <div class="section-shell session-layout">
+          <div class="session-copy" data-reveal><span class="eyebrow">SESSION MANAGER</span><h2>过去的每次对话，<br />随时找回。</h2><p>直接解析 Pi 的 JSONL Session。按项目、ID、名称和模型搜索，查看消息、思考、工具调用与分支。</p><div class="session-points"><div><span>⌕</span><b>快速搜索</b><small>跨项目扫描所有 Session</small></div><div><span>⑂</span><b>分支视图</b><small>区分活动路径与历史分支</small></div><div><span>▷</span><b>继续对话</b><small>外部终端恢复指定 Session</small></div><div><span>⇩</span><b>导出管理</b><small>重命名、删除与导出 HTML</small></div></div></div>
+          <div class="session-window" data-reveal>
+            <div class="session-window-top"><span>对话管理</span><button>↻ 刷新</button></div>
+            <div class="session-body"><div class="session-sidebar"><div class="search-box">⌕　搜索名称、ID 或项目</div><div class="session-row active"><b>实现 Pi Switch MVP</b><p>使用 Tauri 2 + Rust + Vue 实现……</p><small>custom-provider/gpt-5.6-sol　81 条</small></div><div class="session-row"><b>模型配置调试</b><p>检查 openai-responses 参数……</p><small>openai/gpt-5.5　24 条</small></div><div class="session-row"><b>API 网关适配</b><p>添加自定义 Header 和兼容设置……</p><small>deepseek/deepseek-chat　16 条</small></div></div><div class="chat-panel"><div class="chat-head"><div><b>实现 Pi Switch MVP</b><code>019fc6f6-7ca8…</code></div><button>▷ 继续对话</button></div><div class="chat-message user"><small>用户</small><p>使用 Tauri 2 + Rust + Vue 实现吧</p></div><div class="chat-message assistant"><small>Pi</small><p>我先检查当前目录和本机环境，然后初始化项目。</p><span>调用工具　bash</span></div><div class="chat-message tool"><small>工具结果</small><p>Node.js 和 Pi 已安装，开始创建项目……</p></div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="security-section section-shell" id="security">
+        <div class="security-panel" data-reveal>
+          <div class="shield"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 53 13v15c0 14.2-8.5 25.6-21 31C19.5 53.6 11 42.2 11 28V13L32 5Z"/><path d="m23 31 6 6 13-14"/></svg></div>
+          <div class="security-copy"><span class="eyebrow">LOCAL FIRST</span><h2>你的配置与对话，留在本地。</h2><p>Pi Switch 直接读取 Pi 的本地目录，不建立账户，也不上传 Session。API Key 推荐使用环境变量引用，明文密钥在界面中默认隐藏。</p></div>
+          <div class="security-tags"><span>无遥测</span><span>无云端数据库</span><span>配置自动备份</span><span>开源可审计</span></div>
+        </div>
+      </section>
+
+      <section class="download-section section-shell" id="download">
+        <div class="download-card" data-reveal>
+          <div class="download-orbit orbit-one"></div><div class="download-orbit orbit-two"></div>
+          <img src="assets/logo.svg" alt="Pi Switch" width="84" height="84" />
+          <span class="eyebrow">GET STARTED</span><h2>现在开始管理你的 Pi</h2><p>下载 Windows x64 安装版或便携版。需要先安装 Pi Coding Agent。</p>
+          <div class="hero-actions download-actions"><a class="button button-primary" href="https://github.com/PRCABK/pi-switch/releases/latest" data-setup-link data-release-link>下载安装版 · <span data-version>最新版</span></a><a class="button button-secondary" href="https://github.com/PRCABK/pi-switch/releases/latest" data-portable-link data-release-link>下载便携版</a></div>
+          <small class="requirements">Windows 10/11 · x64 · WebView2</small>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer"><div class="section-shell footer-inner"><div class="footer-brand"><img src="assets/logo.svg" alt="" /><div><strong>Pi Switch</strong><small>Pi 模型与对话管理工具</small></div></div><div class="footer-links"><a href="https://github.com/PRCABK/pi-switch" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/PRCABK/pi-switch/releases" target="_blank" rel="noreferrer">Releases</a><a href="https://pi.dev" target="_blank" rel="noreferrer">Pi.dev</a></div><p>Released under the MIT License.</p></div></footer>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

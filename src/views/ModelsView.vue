@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { Delete, Download, Plus, Refresh, Search } from "@element-plus/icons-vue";
+import { Delete, Download, EditPen, Plus, Refresh, Search } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api } from "../api";
 import { loadSettings } from "../settings";
@@ -27,6 +27,21 @@ const validationOutput = ref("");
 const providers = computed(() => Object.entries(config.value.providers || {}).map(([id, value]) => ({ id, value })));
 const selected = computed(() => config.value.providers[selectedProvider.value]);
 const selectedModels = computed(() => Array.isArray(selected.value?.models) ? selected.value.models as Record<string, unknown>[] : []);
+
+const modelDialogVisible = ref(false);
+const editingModelIndex = ref(-1);
+const modelForm = reactive({
+  id: "",
+  name: "",
+  reasoning: false,
+  input: ["text"] as string[],
+  contextWindow: 128000,
+  maxTokens: 16384,
+  costInput: 0,
+  costOutput: 0,
+  costCacheRead: 0,
+  costCacheWrite: 0,
+});
 
 function errorText(error: unknown): string {
   return typeof error === "string" ? error : error instanceof Error ? error.message : String(error);
@@ -97,6 +112,68 @@ async function removeProvider(id: string) {
     await ElMessageBox.confirm(`确定删除 Provider “${id}”吗？保存配置后才会写入磁盘。`, "删除确认", { type: "warning" });
     delete config.value.providers[id];
     selectedProvider.value = Object.keys(config.value.providers)[0] || "";
+  } catch { /* 用户取消 */ }
+}
+
+function updateProviderModels(models: Record<string, unknown>[]) {
+  const provider = config.value.providers[selectedProvider.value];
+  if (provider) provider.models = models;
+}
+
+function openModelEditor(index?: number) {
+  const model = index !== undefined && index >= 0 ? selectedModels.value[index] : null;
+  const cost = (model?.cost as Record<string, unknown> | undefined) ?? {};
+  modelForm.id = String(model?.id ?? "");
+  modelForm.name = String(model?.name ?? "");
+  modelForm.reasoning = Boolean(model?.reasoning);
+  modelForm.input = Array.isArray(model?.input) ? [...(model.input as string[])] : ["text"];
+  modelForm.contextWindow = Number(model?.contextWindow ?? 128000);
+  modelForm.maxTokens = Number(model?.maxTokens ?? 16384);
+  modelForm.costInput = Number(cost.input ?? 0);
+  modelForm.costOutput = Number(cost.output ?? 0);
+  modelForm.costCacheRead = Number(cost.cacheRead ?? 0);
+  modelForm.costCacheWrite = Number(cost.cacheWrite ?? 0);
+  editingModelIndex.value = index ?? -1;
+  modelDialogVisible.value = true;
+}
+
+function applyModel() {
+  const id = modelForm.id.trim();
+  if (!id) return ElMessage.warning("请输入模型 ID");
+  const duplicate = selectedModels.value.some((model, i) => String(model.id) === id && i !== editingModelIndex.value);
+  if (duplicate) return ElMessage.warning("模型 ID 已存在");
+  const model: Record<string, unknown> = {
+    id,
+    reasoning: modelForm.reasoning,
+    input: modelForm.input.length ? [...modelForm.input] : ["text"],
+    contextWindow: modelForm.contextWindow,
+    maxTokens: modelForm.maxTokens,
+    cost: {
+      input: modelForm.costInput,
+      output: modelForm.costOutput,
+      cacheRead: modelForm.costCacheRead,
+      cacheWrite: modelForm.costCacheWrite,
+    },
+  };
+  if (modelForm.name.trim()) model.name = modelForm.name.trim();
+  const models = [...selectedModels.value];
+  if (editingModelIndex.value >= 0) {
+    const original = models[editingModelIndex.value] ?? {};
+    models[editingModelIndex.value] = { ...original, ...model };
+  } else {
+    models.push(model);
+  }
+  updateProviderModels(models);
+  modelDialogVisible.value = false;
+  ElMessage.success("模型已更新，点击“保存配置”写入磁盘");
+}
+
+async function removeModel(index: number) {
+  try {
+    await ElMessageBox.confirm("确定删除该模型吗？保存配置后才会写入磁盘。", "删除确认", { type: "warning" });
+    const models = [...selectedModels.value];
+    models.splice(index, 1);
+    updateProviderModels(models);
   } catch { /* 用户取消 */ }
 }
 
@@ -220,13 +297,14 @@ onMounted(loadConfig);
               <el-descriptions-item label="API Key">{{ displayApiKey(selected.apiKey) }}</el-descriptions-item>
               <el-descriptions-item label="模型数量">{{ selectedModels.length }}</el-descriptions-item>
             </el-descriptions>
-            <h3 style="font-size: 14px; margin: 22px 0 12px">模型列表</h3>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px"><h3 style="font-size:14px;margin:0">模型列表</h3><el-button size="small" type="primary" :icon="Plus" @click="openModelEditor()">新增模型</el-button></div>
             <el-table :data="selectedModels" border empty-text="没有配置自定义模型">
               <el-table-column prop="id" label="模型 ID" min-width="170" />
               <el-table-column prop="name" label="名称" min-width="130" />
               <el-table-column prop="contextWindow" label="上下文" width="110" />
               <el-table-column prop="maxTokens" label="最大输出" width="110" />
               <el-table-column label="推理" width="72"><template #default="scope">{{ scope.row.reasoning ? "是" : "否" }}</template></el-table-column>
+              <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" :icon="EditPen" @click="openModelEditor(scope.$index)">编辑</el-button><el-button link type="danger" :icon="Delete" @click="removeModel(scope.$index)">删除</el-button></template></el-table-column>
             </el-table>
             <div style="margin-top: 16px"><el-button @click="validateConfig">运行 pi --list-models</el-button></div>
           </div>
@@ -245,6 +323,19 @@ onMounted(loadConfig);
         <el-form-item label="模型配置（JSON 数组）"><el-input v-model="editor.models" type="textarea" :rows="12" class="code" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="editorVisible = false">取消</el-button><el-button type="primary" @click="applyEditor">应用</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="modelDialogVisible" :title="editingModelIndex >= 0 ? '编辑模型' : '新增模型'" width="640px" destroy-on-close>
+      <el-form label-position="top">
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="模型 ID"><el-input v-model="modelForm.id" placeholder="gpt-5.5" /></el-form-item></el-col><el-col :span="12"><el-form-item label="显示名称"><el-input v-model="modelForm.name" placeholder="GPT-5.5" /></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="支持推理"><el-switch v-model="modelForm.reasoning" /></el-form-item></el-col><el-col :span="12"><el-form-item label="输入类型"><el-select v-model="modelForm.input" multiple style="width:100%"><el-option label="文本" value="text" /><el-option label="图片" value="image" /></el-select></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="上下文窗口"><el-input-number v-model="modelForm.contextWindow" :min="1" :step="1000" style="width:100%" /></el-form-item></el-col><el-col :span="12"><el-form-item label="最大输出 Tokens"><el-input-number v-model="modelForm.maxTokens" :min="1" :step="1000" style="width:100%" /></el-form-item></el-col></el-row>
+        <el-form-item label="价格（美元 / 百万 tokens）">
+          <div class="toolbar"><el-input-number v-model="modelForm.costInput" :min="0" :precision="4" :step="0.5" /><span class="muted" style="font-size:12px">输入</span><el-input-number v-model="modelForm.costOutput" :min="0" :precision="4" :step="0.5" /><span class="muted" style="font-size:12px">输出</span></div>
+          <div class="toolbar" style="margin-top:10px"><el-input-number v-model="modelForm.costCacheRead" :min="0" :precision="4" :step="0.5" /><span class="muted" style="font-size:12px">缓存读取</span><el-input-number v-model="modelForm.costCacheWrite" :min="0" :precision="4" :step="0.5" /><span class="muted" style="font-size:12px">缓存写入</span></div>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="modelDialogVisible = false">取消</el-button><el-button type="primary" @click="applyModel">应用</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="catalogVisible" title="从 pi.dev 模型目录导入" width="920px" destroy-on-close>

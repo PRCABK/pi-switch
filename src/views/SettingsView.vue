@@ -7,9 +7,25 @@ import type { AppInfo } from "../types";
 
 const settings = reactive<UserSettings>(loadSettings());
 const info = ref<AppInfo | null>(null);
+const infoLoading = ref(false);
+
+// 模块级缓存：首次加载后，再次进入页面直接使用缓存，不再重复请求
+let cachedInfo: AppInfo | null = null;
 
 function errorText(error: unknown): string {
   return typeof error === "string" ? error : error instanceof Error ? error.message : String(error);
+}
+
+async function loadInfo() {
+  infoLoading.value = true;
+  try {
+    info.value = await api.getAppInfo();
+    cachedInfo = info.value;
+  } catch (error) {
+    ElMessage.error(errorText(error));
+  } finally {
+    infoLoading.value = false;
+  }
 }
 
 function save() {
@@ -24,9 +40,12 @@ function reset() {
   save();
 }
 
-onMounted(async () => {
-  try { info.value = await api.getAppInfo(); }
-  catch (error) { ElMessage.error(errorText(error)); }
+onMounted(() => {
+  if (cachedInfo) {
+    info.value = cachedInfo;
+  } else {
+    loadInfo();
+  }
 });
 </script>
 
@@ -46,7 +65,7 @@ onMounted(async () => {
       </div>
     </div>
     <div v-if="info" class="panel" style="max-width:820px;margin-top:18px">
-      <div class="panel-header"><h2>环境信息</h2></div>
+      <div class="panel-header"><h2>环境信息</h2><el-button size="small" :loading="infoLoading" @click="loadInfo">重新加载</el-button></div>
       <div class="panel-body"><el-descriptions :column="1" border><el-descriptions-item label="Pi 版本">{{ info.piVersion || "未检测到" }}</el-descriptions-item><el-descriptions-item label="Agent 目录"><span class="code">{{ info.agentDir }}</span></el-descriptions-item><el-descriptions-item label="默认模型配置"><span class="code">{{ info.modelsPath }}</span></el-descriptions-item><el-descriptions-item label="默认对话目录"><span class="code">{{ info.sessionsDir }}</span></el-descriptions-item></el-descriptions></div>
     </div>
   </section>

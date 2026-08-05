@@ -155,7 +155,7 @@ onMounted(() => loadSessions(false));
       <div class="panel" v-loading="detailLoading">
         <template v-if="detail">
           <div class="panel-header">
-            <div style="min-width:0"><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ detail.summary.name || detail.summary.firstMessage || "未命名会话" }}</h2><div class="muted code" style="margin-top:5px;font-size:11px">{{ detail.summary.id }}</div></div>
+            <div style="min-width:0"><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ detail.summary.name || detail.summary.firstMessage || "未命名会话" }}</h2><div class="muted code" style="margin-top:5px;font-size:11px;user-select:text">pi --session {{ detail.summary.id }}</div></div>
             <div class="toolbar">
               <el-button size="small" type="primary" :icon="VideoPlay" @click="continueSession">继续对话</el-button>
               <el-dropdown trigger="click">

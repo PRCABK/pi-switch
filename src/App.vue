@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import { ChatDotRound, Connection, Setting } from "@element-plus/icons-vue";
+import { BrainCircuit, MessageSquareText, Settings2 } from "@lucide/vue";
 </script>
 
 <template>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">π</div>
+        <div class="brand-mark" aria-hidden="true"><BrainCircuit :size="21" :stroke-width="1.8" /></div>
         <div class="brand-copy">
           <strong>Pi Switch</strong>
           <small>Control Center</small>
         </div>
       </div>
 
-      <div class="nav-label">工作台</div>
+      <div class="nav-label">工作台 / 控制面</div>
       <el-menu router :default-active="$route.path" class="nav-menu">
-        <el-menu-item index="/models"><el-icon><Connection /></el-icon><span>模型管理</span></el-menu-item>
-        <el-menu-item index="/sessions"><el-icon><ChatDotRound /></el-icon><span>对话管理</span></el-menu-item>
-        <el-menu-item index="/settings"><el-icon><Setting /></el-icon><span>应用设置</span></el-menu-item>
+        <el-menu-item index="/models"><el-icon><BrainCircuit /></el-icon><span>模型管理</span><small>01</small></el-menu-item>
+        <el-menu-item index="/sessions"><el-icon><MessageSquareText /></el-icon><span>对话管理</span><small>02</small></el-menu-item>
+        <el-menu-item index="/settings"><el-icon><Settings2 /></el-icon><span>应用设置</span><small>03</small></el-menu-item>
       </el-menu>
 
       <div class="sidebar-footer">
         <span class="status-dot"></span>
-        <span>Pi Switch</span>
-        <span class="version">v0.2.1</span>
+        <span>LOCAL / READY</span>
+        <span class="version">v0.2.2</span>
       </div>
     </aside>
     <main class="main-content">

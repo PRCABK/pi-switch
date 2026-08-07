@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { Delete, Download, EditPen, Refresh, Search, VideoPlay } from "@element-plus/icons-vue";
+import { Archive, ArrowDownToLine, MoreHorizontal, Pencil, Play, RefreshCw, Search, Trash2 } from "@lucide/vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api } from "../api";
 import { loadSettings } from "../settings";
@@ -133,7 +133,7 @@ onMounted(() => loadSessions(false));
   <section class="page">
     <header class="page-header">
       <div class="page-title"><h1>对话管理</h1><p>浏览、管理并继续 Pi 历史 Session</p></div>
-      <div class="toolbar"><el-button :icon="Refresh" :loading="loading" @click="loadSessions(true)">刷新</el-button></div>
+      <div class="toolbar"><el-button :icon="RefreshCw" :loading="loading" @click="loadSessions(true)">刷新</el-button></div>
     </header>
 
     <div class="session-grid">
@@ -157,10 +157,10 @@ onMounted(() => loadSessions(false));
           <div class="panel-header">
             <div style="min-width:0"><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ detail.summary.name || detail.summary.firstMessage || "未命名会话" }}</h2><div class="muted code" style="margin-top:5px;font-size:11px;user-select:text">pi --session {{ detail.summary.id }}</div></div>
             <div class="toolbar">
-              <el-button size="small" type="primary" :icon="VideoPlay" @click="continueSession">继续对话</el-button>
+              <el-button size="small" type="primary" :icon="Play" @click="continueSession">继续对话</el-button>
               <el-dropdown trigger="click">
-                <el-button size="small">更多</el-button>
-                <template #dropdown><el-dropdown-menu><el-dropdown-item :icon="EditPen" @click="renameSession">重命名</el-dropdown-item><el-dropdown-item :icon="Download" @click="exportSession">导出 HTML</el-dropdown-item><el-dropdown-item :icon="Delete" divided @click="deleteSession">删除</el-dropdown-item></el-dropdown-menu></template>
+                <el-button size="small" :icon="MoreHorizontal" aria-label="更多操作"></el-button>
+                <template #dropdown><el-dropdown-menu><el-dropdown-item :icon="Pencil" @click="renameSession">重命名</el-dropdown-item><el-dropdown-item :icon="ArrowDownToLine" @click="exportSession">导出 HTML</el-dropdown-item><el-dropdown-item :icon="Trash2" divided @click="deleteSession">删除</el-dropdown-item></el-dropdown-menu></template>
               </el-dropdown>
             </div>
           </div>
@@ -170,7 +170,7 @@ onMounted(() => loadSessions(false));
           </div>
           <div class="conversation">
             <article v-for="entry in displayEntries" :key="entry.id" :class="messageClass(entry)">
-              <div class="message-card" :style="entry.isError ? 'border-color:#ef9a9a;background:#fff5f5' : ''">
+              <div class="message-card" :style="entry.isError ? 'border-color:#ef9a9a;background:#fff5f5' : ''"><div class="message-accent"><Archive :size="13" /></div>
                 <div class="message-head"><strong>{{ entry.title }}<span v-if="entry.toolName"> · {{ entry.toolName }}</span></strong><span>{{ formatTime(entry.timestamp) }}<template v-if="!entry.active"> · 历史分支</template></span></div>
                 <p v-if="entry.text" class="message-text">{{ entry.text }}</p>
                 <el-collapse v-if="entry.thinking" style="margin-top:8px"><el-collapse-item title="查看思考内容"><p class="message-text muted">{{ entry.thinking }}</p></el-collapse-item></el-collapse>

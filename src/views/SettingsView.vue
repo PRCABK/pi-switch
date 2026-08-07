@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
+import { FolderCog, RotateCcw, Save, RefreshCw, Terminal } from "@lucide/vue";
 import { ElMessage } from "element-plus";
 import { api } from "../api";
 import { loadSettings, saveSettings, type UserSettings } from "../settings";
@@ -70,7 +71,7 @@ onMounted(() => loadInfo());
   <section class="page">
     <header class="page-header"><div class="page-title"><h1>应用设置</h1><p>配置 Pi 可执行文件和数据目录</p></div></header>
     <div class="panel" style="max-width:820px">
-      <div class="panel-header"><h2>路径设置</h2></div>
+      <div class="panel-header"><h2><FolderCog :size="15" /> 路径设置</h2><span class="panel-index">01 / CONFIG</span></div>
       <div class="panel-body">
         <el-alert type="info" :closable="false" style="margin-bottom:20px">留空时使用 Pi 的默认位置。路径只保存在本机 WebView 的 localStorage 中。</el-alert>
         <el-form label-position="top">
@@ -78,11 +79,11 @@ onMounted(() => loadInfo());
           <el-form-item label="models.json 路径"><el-input v-model="settings.modelsPath" :placeholder="info?.modelsPath || '~/.pi/agent/models.json'" /></el-form-item>
           <el-form-item label="Sessions 目录"><el-input v-model="settings.sessionsDir" :placeholder="info?.sessionsDir || '~/.pi/agent/sessions'" /></el-form-item>
         </el-form>
-        <div class="toolbar"><el-button type="primary" @click="save">保存设置</el-button><el-button @click="reset">恢复默认</el-button></div>
+        <div class="toolbar"><el-button type="primary" :icon="Save" @click="save">保存设置</el-button><el-button :icon="RotateCcw" @click="reset">恢复默认</el-button></div>
       </div>
     </div>
     <div v-if="info" class="panel" style="max-width:820px;margin-top:18px">
-      <div class="panel-header"><h2>环境信息</h2><el-button size="small" :loading="infoLoading" @click="loadInfo(true)">重新加载</el-button></div>
+      <div class="panel-header"><h2><Terminal :size="15" /> 环境信息</h2><div class="toolbar"><span class="panel-index">RUNTIME</span><el-button size="small" :icon="RefreshCw" :loading="infoLoading" @click="loadInfo(true)">重新加载</el-button></div></div>
       <div class="panel-body"><el-descriptions :column="1" border><el-descriptions-item label="Pi 版本">{{ info.piVersion || "未检测到" }}</el-descriptions-item><el-descriptions-item label="Agent 目录"><span class="code">{{ info.agentDir }}</span></el-descriptions-item><el-descriptions-item label="默认模型配置"><span class="code">{{ info.modelsPath }}</span></el-descriptions-item><el-descriptions-item label="默认对话目录"><span class="code">{{ info.sessionsDir }}</span></el-descriptions-item></el-descriptions></div>
     </div>
   </section>

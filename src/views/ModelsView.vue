@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { Delete, Download, EditPen, Plus, Refresh, Search } from "@element-plus/icons-vue";
+import { ArrowDownToLine, Database, Pencil, Plus, RefreshCw, Search, Save, Trash2, Wrench } from "@lucide/vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api } from "../api";
 import { loadSettings } from "../settings";
@@ -267,8 +267,8 @@ onMounted(loadConfig);
       <div class="page-title"><h1>模型管理</h1><p>管理 Pi 的自定义 Provider 和模型配置</p></div>
       <div class="toolbar">
         <el-button :icon="Search" @click="catalogVisible = true">从 pi.dev 导入</el-button>
-        <el-button :icon="Refresh" @click="loadConfig">重新加载</el-button>
-        <el-button type="primary" :loading="saving" @click="saveConfig">保存配置</el-button>
+        <el-button :icon="RefreshCw" @click="loadConfig">重新加载</el-button>
+        <el-button type="primary" :loading="saving" :icon="Save" @click="saveConfig">保存配置</el-button>
       </div>
     </header>
 
@@ -276,7 +276,7 @@ onMounted(loadConfig);
 
     <div class="two-column" style="margin-top: 18px">
       <div class="panel">
-        <div class="panel-header"><h2>Providers（{{ providers.length }}）</h2><el-button size="small" :icon="Plus" @click="openEditor()">新增</el-button></div>
+        <div class="panel-header"><h2><Database :size="15" /> Providers <span class="count-mark">{{ String(providers.length).padStart(2, "0") }}</span></h2><el-button size="small" :icon="Plus" @click="openEditor()">新增</el-button></div>
         <div class="panel-body">
           <div v-if="!providers.length" class="empty-state">还没有自定义 Provider</div>
           <div v-for="provider in providers" :key="provider.id" class="provider-card" :class="{ active: selectedProvider === provider.id }" @click="selectedProvider = provider.id">
@@ -289,7 +289,7 @@ onMounted(loadConfig);
 
       <div class="panel">
         <template v-if="selected">
-          <div class="panel-header"><h2>{{ selectedProvider }}</h2><div class="toolbar"><el-button size="small" @click="openEditor(selectedProvider)">编辑</el-button><el-button size="small" type="danger" plain :icon="Delete" @click="removeProvider(selectedProvider)">删除</el-button></div></div>
+          <div class="panel-header"><h2><span class="section-kicker">ACTIVE PROVIDER</span>{{ selectedProvider }}</h2><div class="toolbar"><el-button size="small" :icon="Pencil" @click="openEditor(selectedProvider)">编辑</el-button><el-button size="small" type="danger" plain :icon="Trash2" @click="removeProvider(selectedProvider)">删除</el-button></div></div>
           <div class="panel-body">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="Base URL">{{ selected.baseUrl || "使用内置地址" }}</el-descriptions-item>
@@ -297,16 +297,16 @@ onMounted(loadConfig);
               <el-descriptions-item label="API Key">{{ displayApiKey(selected.apiKey) }}</el-descriptions-item>
               <el-descriptions-item label="模型数量">{{ selectedModels.length }}</el-descriptions-item>
             </el-descriptions>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px"><h3 style="font-size:14px;margin:0">模型列表</h3><el-button size="small" type="primary" :icon="Plus" @click="openModelEditor()">新增模型</el-button></div>
+            <div class="subsection-head"><h3><span class="section-kicker">CATALOG</span>模型列表</h3><el-button size="small" type="primary" :icon="Plus" @click="openModelEditor()">新增模型</el-button></div>
             <el-table :data="selectedModels" border empty-text="没有配置自定义模型">
               <el-table-column prop="id" label="模型 ID" min-width="170" />
               <el-table-column prop="name" label="名称" min-width="130" />
               <el-table-column prop="contextWindow" label="上下文" width="110" />
               <el-table-column prop="maxTokens" label="最大输出" width="110" />
               <el-table-column label="推理" width="72"><template #default="scope">{{ scope.row.reasoning ? "是" : "否" }}</template></el-table-column>
-              <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" :icon="EditPen" @click="openModelEditor(scope.$index)">编辑</el-button><el-button link type="danger" :icon="Delete" @click="removeModel(scope.$index)">删除</el-button></template></el-table-column>
+              <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" :icon="Pencil" @click="openModelEditor(scope.$index)">编辑</el-button><el-button link type="danger" :icon="Trash2" @click="removeModel(scope.$index)">删除</el-button></template></el-table-column>
             </el-table>
-            <div style="margin-top: 16px"><el-button @click="validateConfig">运行 pi --list-models</el-button></div>
+            <div class="validation-action"><el-button :icon="Wrench" @click="validateConfig">运行 pi --list-models</el-button><span>写入前建议先校验当前配置</span></div>
           </div>
         </template>
         <div v-else class="empty-state">选择或新增一个 Provider</div>
@@ -339,11 +339,11 @@ onMounted(loadConfig);
     </el-dialog>
 
     <el-dialog v-model="catalogVisible" title="从 pi.dev 模型目录导入" width="920px" destroy-on-close>
-      <div class="toolbar" style="margin-bottom:16px"><el-input v-model="catalogQuery.name" style="width:280px" placeholder="模型名称，如 gpt-5.5" clearable @keyup.enter="searchCatalog" /><el-input v-model="catalogQuery.provider" style="width:210px" placeholder="Provider，如 openai" clearable @keyup.enter="searchCatalog" /><el-button type="primary" :icon="Search" :loading="catalogLoading" @click="searchCatalog">搜索</el-button></div>
+      <div class="toolbar catalog-toolbar"><el-input v-model="catalogQuery.name" style="width:280px" placeholder="模型名称，如 gpt-5.5" clearable @keyup.enter="searchCatalog" /><el-input v-model="catalogQuery.provider" style="width:210px" placeholder="Provider，如 openai" clearable @keyup.enter="searchCatalog" /><el-button type="primary" :icon="Search" :loading="catalogLoading" @click="searchCatalog">搜索</el-button></div>
       <div v-if="!catalogPreview">
         <el-table :data="catalogResults" height="420" border empty-text="输入名称后搜索">
           <el-table-column prop="name" label="模型" min-width="180" /><el-table-column prop="id" label="模型 ID" min-width="220" /><el-table-column prop="provider" label="Provider" width="160" /><el-table-column prop="contextWindow" label="上下文" width="110" />
-          <el-table-column label="操作" width="100"><template #default="scope"><el-button link type="primary" :icon="Download" @click="selectCatalogModel(scope.row)">获取配置</el-button></template></el-table-column>
+          <el-table-column label="操作" width="100"><template #default="scope"><el-button link type="primary" :icon="ArrowDownToLine" @click="selectCatalogModel(scope.row)">获取配置</el-button></template></el-table-column>
         </el-table>
       </div>
       <div v-else v-loading="catalogLoading">

@@ -40,7 +40,8 @@ button { color: inherit; font: inherit; }
 .hero-copy { position: relative; z-index: 2; padding-bottom: 45px; }
 .release-pill { width: fit-content; margin-bottom: 24px; padding: 7px 11px; border: 1px solid rgba(124,154,255,.24); border-radius: 100px; display: flex; align-items: center; gap: 8px; color: #bdc9df; background: rgba(70,91,154,.12); font-size: 11px; }
 .release-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 11px var(--green); }
-.pill-arrow { margin-left: 4px; color: var(--blue-light); }
+.pill-arrow { margin-left: 4px; color: var(--blue-light); display: inline-flex; }
+.pill-arrow svg { width: 13px; height: 13px; }
 .hero h1 { margin: 0; font-size: clamp(46px, 5.3vw, 72px); line-height: 1.08; letter-spacing: -3.8px; }
 .hero h1 span { color: transparent; background: linear-gradient(110deg, #80a8ff, #a783ff); background-clip: text; -webkit-background-clip: text; }
 .hero-lead { max-width: 525px; margin: 26px 0 0; color: #9aa5b8; font-size: 16px; line-height: 1.85; }
@@ -48,11 +49,19 @@ button { color: inherit; font: inherit; }
 .button { min-height: 47px; padding: 0 20px; border: 1px solid var(--line); border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; font-weight: 600; transition: transform .2s, border-color .2s, background .2s; }
 .button:hover { transform: translateY(-2px); }
 .button-primary { border-color: #6c96ff; color: white; background: linear-gradient(135deg, #4f80eb, #6a55df); box-shadow: 0 10px 35px rgba(78,104,230,.28); }
-.button-primary svg { width: 17px; fill: currentColor; }
+.button-primary svg { width: 17px; height: 17px; }
+.button-secondary > svg { width: 14px; height: 14px; }
+.side-icon { width: 12px; height: 12px; text-align: center; }
+.float-icon svg, .safe-check svg { width: 15px; height: 15px; }
+.catalog-icon svg { width: 20px; height: 20px; }
+.provider-list-head svg { width: 10px; height: 10px; vertical-align: -2px; }
+.session-window button svg, .search-box svg, .chat-head button svg { width: 10px; height: 10px; vertical-align: -2px; }
+.shield svg { width: 53px; height: 53px; fill: none; stroke: #6d9afd; stroke-width: 2.3; }
 .button-secondary { color: #d9dfeb; background: rgba(255,255,255,.035); }
 .button-secondary:hover { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.065); }
 .hero-note { margin-top: 22px; color: #687387; font-size: 11px; }
-.hero-note span { color: var(--green); }
+.hero-note span { color: var(--green); display: inline-flex; vertical-align: middle; }
+.hero-note svg { width: 12px; height: 12px; }
 
 .product-stage { position: relative; min-width: 0; perspective: 1200px; }
 .stage-glow { position: absolute; inset: 5% 0 -8% 4%; border-radius: 50%; background: radial-gradient(circle, rgba(74,104,242,.33), transparent 66%); filter: blur(35px); }
@@ -123,7 +132,7 @@ button { color: inherit; font: inherit; }
 .feature-card p { max-width: 520px; color: #919cad; font-size: 13px; line-height: 1.75; }
 .feature-card ul { margin: 21px 0 0; padding: 0; list-style: none; color: #bdc5d2; font-size: 12px; }
 .feature-card li { margin-top: 9px; }
-.feature-card li::before { content: "✓"; margin-right: 9px; color: var(--green); }
+.feature-card li::before { content: ""; width: 6px; height: 6px; margin: 0 12px 1px 2px; border-radius: 50%; display: inline-block; vertical-align: middle; background: var(--green); box-shadow: 0 0 8px rgba(85,214,162,.5); }
 .feature-card code { color: #aac1fa; font-family: monospace; }
 .config-visual { padding: 19px; border: 1px solid rgba(132,158,222,.16); border-radius: 12px; background: #0b101a; box-shadow: 0 25px 60px rgba(0,0,0,.25); }
 .config-top { margin-bottom: 17px; padding-bottom: 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; }
@@ -180,7 +189,7 @@ button { color: inherit; font: inherit; }
 .security-copy h2 { font-size: 35px; }
 .security-tags { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .security-tags span { padding: 10px 11px; border: 1px solid rgba(255,255,255,.07); border-radius: 7px; color: #9da9ba; background: rgba(255,255,255,.025); font-size: 9px; }
-.security-tags span::before { content: "✓"; margin-right: 7px; color: var(--green); }
+.security-tags span::before { content: ""; width: 5px; height: 5px; margin: 0 9px 1px 1px; border-radius: 50%; display: inline-block; vertical-align: middle; background: var(--green); }
 
 .download-section { padding-bottom: 120px; }
 .download-card { min-height: 450px; padding: 70px 30px; overflow: hidden; position: relative; border: 1px solid rgba(122,151,241,.17); border-radius: 20px; text-align: center; background: radial-gradient(circle at 50% 40%, rgba(75,91,220,.22), transparent 45%), #0d121e; }

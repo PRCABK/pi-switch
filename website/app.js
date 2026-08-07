@@ -1,4 +1,6 @@
 const repository = "PRCABK/pi-switch";
+
+if (window.lucide) window.lucide.createIcons();
 const releaseUrl = `https://github.com/${repository}/releases/latest`;
 
 for (const link of document.querySelectorAll("[data-release-link]")) {

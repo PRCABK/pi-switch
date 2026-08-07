@@ -26,6 +26,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 推送到 gh-pages 分支
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -eu
           cd website

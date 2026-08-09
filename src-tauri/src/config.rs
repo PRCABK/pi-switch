@@ -10,6 +10,7 @@ pub struct AppInfo {
     pub agent_dir: String,
     pub models_path: String,
     pub sessions_dir: String,
+    pub skills_dir: String,
     pub pi_version: Option<String>,
 }
 
@@ -21,7 +22,7 @@ pub struct ModelConfigFile {
     pub config: Value,
 }
 
-fn default_agent_dir() -> Result<PathBuf, String> {
+pub(crate) fn default_agent_dir() -> Result<PathBuf, String> {
     dirs::home_dir()
         .map(|path| path.join(".pi").join("agent"))
         .ok_or_else(|| "无法确定当前用户主目录".to_string())
@@ -41,6 +42,13 @@ pub(crate) fn resolve_sessions_dir(path: Option<String>) -> Result<PathBuf, Stri
     }
 }
 
+pub(crate) fn resolve_skills_dir(path: Option<String>) -> Result<PathBuf, String> {
+    match path.filter(|value| !value.trim().is_empty()) {
+        Some(value) => Ok(PathBuf::from(value)),
+        None => Ok(default_agent_dir()?.join("skills")),
+    }
+}
+
 fn path_text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -56,6 +64,7 @@ pub fn get_app_info() -> Result<AppInfo, String> {
     Ok(AppInfo {
         models_path: path_text(&agent_dir.join("models.json")),
         sessions_dir: path_text(&agent_dir.join("sessions")),
+        skills_dir: path_text(&agent_dir.join("skills")),
         agent_dir: path_text(&agent_dir),
         pi_version,
     })

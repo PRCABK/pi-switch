@@ -2,6 +2,7 @@ export interface AppInfo {
   agentDir: string;
   modelsPath: string;
   sessionsDir: string;
+  skillsDir: string;
   piVersion?: string;
 }
 
@@ -63,4 +64,55 @@ export interface SessionDetail {
 export interface CommandResult {
   success: boolean;
   output: string;
+}
+
+export interface SkillInfo {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  enabled: boolean;
+  fileCount: number;
+  modifiedAt: string;
+}
+
+export interface SkillCatalog {
+  skillsDir: string;
+  disabledDir: string;
+  skills: SkillInfo[];
+}
+
+export interface UsageTotals {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  requests: number;
+  messages: number;
+  sessions: number;
+}
+
+export interface DailyUsage {
+  date: string;
+  totalTokens: number;
+  totalCost: number;
+  requests: number;
+  sessions: number;
+}
+
+export interface UsageBreakdown {
+  name: string;
+  totalTokens: number;
+  totalCost: number;
+  requests: number;
+}
+
+export interface UsageStats {
+  totals: UsageTotals;
+  today: UsageTotals;
+  daily: DailyUsage[];
+  models: UsageBreakdown[];
+  providers: UsageBreakdown[];
 }

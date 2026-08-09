@@ -35,7 +35,7 @@ function errorText(error: unknown): string {
 async function loadInfo(force = false) {
   if (!force) {
     const cached = readCachedInfo();
-    if (cached) {
+    if (cached?.skillsDir) {
       info.value = cached;
       return;
     }
@@ -60,6 +60,7 @@ function save() {
 function reset() {
   settings.modelsPath = "";
   settings.sessionsDir = "";
+  settings.skillsDir = "";
   settings.piPath = "";
   save();
 }
@@ -78,13 +79,14 @@ onMounted(() => loadInfo());
           <el-form-item label="Pi 可执行文件"><el-input v-model="settings.piPath" :placeholder="info?.piVersion ? `pi（检测到 ${info.piVersion}）` : 'pi 或完整路径'" /></el-form-item>
           <el-form-item label="models.json 路径"><el-input v-model="settings.modelsPath" :placeholder="info?.modelsPath || '~/.pi/agent/models.json'" /></el-form-item>
           <el-form-item label="Sessions 目录"><el-input v-model="settings.sessionsDir" :placeholder="info?.sessionsDir || '~/.pi/agent/sessions'" /></el-form-item>
+          <el-form-item label="Skills 目录"><el-input v-model="settings.skillsDir" :placeholder="info?.skillsDir || '~/.pi/agent/skills'" /></el-form-item>
         </el-form>
         <div class="toolbar"><el-button type="primary" :icon="Save" @click="save">保存设置</el-button><el-button :icon="RotateCcw" @click="reset">恢复默认</el-button></div>
       </div>
     </div>
     <div v-if="info" class="panel" style="max-width:820px;margin-top:18px">
       <div class="panel-header"><h2><Terminal :size="15" /> 环境信息</h2><div class="toolbar"><span class="panel-index">RUNTIME</span><el-button size="small" :icon="RefreshCw" :loading="infoLoading" @click="loadInfo(true)">重新加载</el-button></div></div>
-      <div class="panel-body"><el-descriptions :column="1" border><el-descriptions-item label="Pi 版本">{{ info.piVersion || "未检测到" }}</el-descriptions-item><el-descriptions-item label="Agent 目录"><span class="code">{{ info.agentDir }}</span></el-descriptions-item><el-descriptions-item label="默认模型配置"><span class="code">{{ info.modelsPath }}</span></el-descriptions-item><el-descriptions-item label="默认对话目录"><span class="code">{{ info.sessionsDir }}</span></el-descriptions-item></el-descriptions></div>
+      <div class="panel-body"><el-descriptions :column="1" border><el-descriptions-item label="Pi 版本">{{ info.piVersion || "未检测到" }}</el-descriptions-item><el-descriptions-item label="Agent 目录"><span class="code">{{ info.agentDir }}</span></el-descriptions-item><el-descriptions-item label="默认模型配置"><span class="code">{{ info.modelsPath }}</span></el-descriptions-item><el-descriptions-item label="默认对话目录"><span class="code">{{ info.sessionsDir }}</span></el-descriptions-item><el-descriptions-item label="默认 Skill 目录"><span class="code">{{ info.skillsDir }}</span></el-descriptions-item></el-descriptions></div>
     </div>
   </section>
 </template>

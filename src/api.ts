@@ -7,6 +7,9 @@ import type {
   ModelConfigFile,
   SessionDetail,
   SessionSummary,
+  SkillCatalog,
+  SkillInfo,
+  UsageStats,
 } from "./types";
 
 export const api = {
@@ -22,6 +25,16 @@ export const api = {
     invoke<SessionSummary[]>("list_sessions", { sessionsDir }),
   getSessionDetail: (sessionPath: string) =>
     invoke<SessionDetail>("get_session_detail", { sessionPath }),
+  getUsageStats: (sessionsDir?: string) =>
+    invoke<UsageStats>("get_usage_stats", { sessionsDir }),
+  listSkills: (skillsDir?: string) =>
+    invoke<SkillCatalog>("list_skills", { skillsDir }),
+  installSkill: (sourcePath: string, skillsDir?: string) =>
+    invoke<SkillInfo>("install_skill", { sourcePath, skillsDir }),
+  setSkillEnabled: (skillId: string, enabled: boolean, skillsDir?: string) =>
+    invoke<void>("set_skill_enabled", { skillId, enabled, skillsDir }),
+  uninstallSkill: (skillId: string, enabled: boolean, skillsDir?: string) =>
+    invoke<void>("uninstall_skill", { skillId, enabled, skillsDir }),
   renameSession: (sessionPath: string, name: string) =>
     invoke<void>("rename_session", { sessionPath, name }),
   deleteSession: (sessionPath: string) =>

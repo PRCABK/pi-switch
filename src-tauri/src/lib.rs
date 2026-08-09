@@ -2,6 +2,8 @@ mod catalog;
 mod config;
 mod process;
 mod sessions;
+mod skills;
+mod usage;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,6 +18,11 @@ pub fn run() {
             sessions::get_session_detail,
             sessions::rename_session,
             sessions::delete_session,
+            skills::list_skills,
+            skills::install_skill,
+            skills::set_skill_enabled,
+            skills::uninstall_skill,
+            usage::get_usage_stats,
             process::validate_models,
             process::continue_session,
             process::export_session

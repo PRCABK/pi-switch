@@ -1,9 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;680;720&display=swap');
+
 :root {
-  font-family: "Avenir Next", "SF Pro Rounded", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   color: #2f3442;
   background: #f4f2f8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   --accent: #8d659d;
   --accent-strong: #745184;
   --accent-soft: rgba(141, 101, 157, 0.13);
@@ -76,6 +81,12 @@ a,
 ::selection {
   color: #fff;
   background: rgba(116, 81, 132, 0.72);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar {
@@ -158,7 +169,7 @@ a,
   border-radius: 9px 6px 10px 7px;
   background: transparent;
   cursor: default;
-  transition: color 220ms var(--ease-fluid), background-color 220ms var(--ease-fluid), border-radius 220ms var(--ease-fluid), transform 220ms var(--ease-fluid);
+  transition: color 220ms var(--ease-fluid), background-color 220ms var(--ease-fluid), border-radius 220ms var(--ease-fluid), transform 220ms var(--ease-fluid), box-shadow 220ms var(--ease-fluid);
 }
 
 .window-control svg {
@@ -169,6 +180,7 @@ a,
   color: #554c5d;
   border-radius: 6px 10px 7px 9px;
   background: rgba(141, 101, 157, 0.1);
+  box-shadow: 0 2px 8px rgba(141, 101, 157, 0.12);
   transform: scale(1.04);
 }
 
@@ -327,7 +339,7 @@ a,
   color: #343341;
   font-size: 16px;
   font-weight: 680;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -472,7 +484,7 @@ a,
   color: #30323f;
   font-size: clamp(30px, 3vw, 44px);
   font-weight: 720;
-  letter-spacing: 0;
+  letter-spacing: -0.03em;
   line-height: 1.05;
   text-wrap: balance;
 }
@@ -546,7 +558,7 @@ a,
   color: #383945;
   font-size: 14px;
   font-weight: 680;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 .panel-header h2 svg {
@@ -618,6 +630,7 @@ a,
   padding: 60px 20px;
   color: var(--text-tertiary);
   font-size: 13px;
+  line-height: 1.6;
   text-align: center;
 }
 
@@ -630,6 +643,12 @@ a,
   border-radius: 58% 42% 61% 39% / 45% 62% 38% 55%;
   background: linear-gradient(145deg, rgba(217, 166, 188, 0.22), rgba(135, 200, 200, 0.18));
   content: "";
+  animation: empty-float 3s ease-in-out infinite alternate;
+}
+
+@keyframes empty-float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
 }
 
 .two-column {
@@ -661,6 +680,7 @@ a,
   background: rgba(244, 240, 247, 0.7);
   cursor: pointer;
   transition: border-color 300ms var(--ease-fluid), background-color 300ms var(--ease-fluid), box-shadow 300ms var(--ease-fluid), transform 300ms var(--ease-fluid), border-radius 300ms var(--ease-fluid);
+  will-change: transform;
 }
 
 .provider-card:last-child {
@@ -1714,6 +1734,30 @@ a,
   gap: 15px;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .skill-card {
+    animation: skill-fade-in 400ms var(--ease-fluid) backwards;
+  }
+  
+  .skill-card:nth-child(1) { animation-delay: 40ms; }
+  .skill-card:nth-child(2) { animation-delay: 80ms; }
+  .skill-card:nth-child(3) { animation-delay: 120ms; }
+  .skill-card:nth-child(4) { animation-delay: 160ms; }
+  .skill-card:nth-child(5) { animation-delay: 200ms; }
+  .skill-card:nth-child(6) { animation-delay: 240ms; }
+}
+
+@keyframes skill-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .skill-card {
   position: relative;
   display: flex;
@@ -1834,6 +1878,37 @@ a,
 .skill-actions .el-button {
   flex: 1;
   margin-left: 0;
+  transition: all 200ms var(--ease-fluid);
+}
+
+.el-button:not(.is-disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(141, 101, 157, 0.15);
+}
+
+.el-button:not(.is-disabled):active {
+  transform: scale(0.97) translateY(0);
+  transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.el-button.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.el-button.is-loading::after {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  content: "";
+  animation: button-shimmer 1.5s infinite;
+}
+
+@keyframes button-shimmer {
+  to { left: 100%; }
 }
 
 .skill-empty {

@@ -1,9 +1,47 @@
 <script setup lang="ts">
-import { BrainCircuit, MessageSquareText, Settings2 } from "@lucide/vue";
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { BrainCircuit, MessageSquareText, Minus, Settings2, Square, X } from "@lucide/vue";
+
+const appWindow = isTauri() ? getCurrentWindow() : null;
+
+async function runWindowAction(action: () => Promise<void>) {
+  try {
+    await action();
+  } catch {
+    // Ignore native window errors while the app is shutting down.
+  }
+}
+
+async function minimizeWindow() {
+  if (appWindow) await runWindowAction(() => appWindow.minimize());
+}
+
+async function toggleMaximizeWindow() {
+  if (appWindow) await runWindowAction(() => appWindow.toggleMaximize());
+}
+
+async function closeWindow() {
+  if (appWindow) await runWindowAction(() => appWindow.close());
+}
 </script>
 
 <template>
   <div class="app-shell">
+    <header class="window-titlebar" data-tauri-drag-region @dblclick="toggleMaximizeWindow">
+      <div class="window-controls" @dblclick.stop>
+        <button class="window-control" type="button" aria-label="最小化" title="最小化" @click="minimizeWindow">
+          <Minus :size="14" :stroke-width="1.8" />
+        </button>
+        <button class="window-control" type="button" aria-label="最大化或还原" title="最大化或还原" @click="toggleMaximizeWindow">
+          <Square :size="11" :stroke-width="1.8" />
+        </button>
+        <button class="window-control window-control--close" type="button" aria-label="关闭" title="关闭" @click="closeWindow">
+          <X :size="14" :stroke-width="1.8" />
+        </button>
+      </div>
+    </header>
+
     <div class="ambient-shapes" aria-hidden="true">
       <span class="ambient-blob ambient-blob--rose"></span>
       <span class="ambient-blob ambient-blob--cyan"></span>

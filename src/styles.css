@@ -122,6 +122,66 @@ a,
   pointer-events: none;
 }
 
+.window-titlebar {
+  position: absolute;
+  z-index: 7;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 42px;
+  user-select: none;
+}
+
+.window-controls {
+  position: absolute;
+  top: 9px;
+  right: 12px;
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 14px 9px 15px 10px;
+  background: rgba(250, 248, 252, 0.62);
+  box-shadow: 0 8px 24px rgba(89, 72, 102, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+}
+
+.window-control {
+  display: grid;
+  width: 30px;
+  height: 25px;
+  padding: 0;
+  place-items: center;
+  color: #777380;
+  border: 0;
+  border-radius: 9px 6px 10px 7px;
+  background: transparent;
+  cursor: default;
+  transition: color 220ms var(--ease-fluid), background-color 220ms var(--ease-fluid), border-radius 220ms var(--ease-fluid), transform 220ms var(--ease-fluid);
+}
+
+.window-control svg {
+  pointer-events: none;
+}
+
+.window-control:hover {
+  color: #554c5d;
+  border-radius: 6px 10px 7px 9px;
+  background: rgba(141, 101, 157, 0.1);
+  transform: scale(1.04);
+}
+
+.window-control:active {
+  border-radius: 8px 7px 9px 7px;
+  transform: scale(0.92);
+}
+
+.window-control--close:hover {
+  color: #884f61;
+  background: rgba(217, 166, 188, 0.28);
+}
+
 .ambient-shapes {
   position: absolute;
   z-index: -1;
@@ -1270,6 +1330,10 @@ a,
 }
 
 @media (max-width: 600px) {
+  .window-titlebar {
+    display: none;
+  }
+
   .app-shell {
     flex-direction: column;
   }

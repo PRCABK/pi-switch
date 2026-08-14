@@ -6,6 +6,62 @@ const CATALOG_ORIGIN: &str = "https://pi.dev";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProviderModel {
+    pub id: String,
+}
+
+fn join_base_url(base_url: &str) -> Result<String, String> {
+    let trimmed = base_url.trim();
+    if trimmed.is_empty() {
+        return Err("Provider 未配置 Base URL".to_string());
+    }
+    let trimmed = trimmed.trim_end_matches('/');
+    if trimmed.ends_with("/models") {
+        Ok(trimmed.to_string())
+    } else if trimmed.ends_with("/v1") {
+        Ok(format!("{trimmed}/models"))
+    } else {
+        Ok(format!("{trimmed}/models"))
+    }
+}
+
+#[tauri::command]
+pub async fn fetch_provider_models(base_url: String, api_key: Option<String>, auth_header: bool) -> Result<Vec<ProviderModel>, String> {
+    let url = join_base_url(&base_url)?;
+    let mut request = client()?.get(&url);
+    if auth_header {
+        let key = api_key.unwrap_or_default();
+        let key = key.trim();
+        if !key.is_empty() && !key.starts_with('$') && !key.starts_with('!') {
+            request = request.header("Authorization", format!("Bearer {key}"));
+        }
+    }
+    let response = request.send().await.map_err(|error| format!("请求 /v1/models 失败：{error}"))?;
+    let status = response.status();
+    let text = response.text().await.map_err(|error| format!("读取响应失败：{error}"))?;
+    if !status.is_success() {
+        let snippet = text.chars().take(300).collect::<String>();
+        return Err(format!("/v1/models 返回错误：{status} - {snippet}"));
+    }
+    let value: Value = serde_json::from_str(&text).map_err(|error| format!("解析 JSON 失败：{error}"))?;
+    let ids = match &value {
+        Value::Object(map) => map.get("data").cloned().unwrap_or(Value::Null),
+        Value::Array(array) => Value::Array(array.clone()),
+        _ => Value::Null,
+    };
+    let array = ids.as_array().ok_or("响应中没有可解析的模型列表")?;
+    let mut result = Vec::new();
+    for item in array {
+        let id = item.get("id").and_then(|value| value.as_str()).unwrap_or_default().trim().to_string();
+        if !id.is_empty() {
+            result.push(ProviderModel { id });
+        }
+    }
+    Ok(result)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CatalogModel {
     pub name: String,
     pub id: String,

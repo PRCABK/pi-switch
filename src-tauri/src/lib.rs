@@ -14,6 +14,7 @@ pub fn run() {
             config::save_model_config,
             catalog::search_catalog,
             catalog::fetch_catalog_config,
+            catalog::fetch_provider_models,
             sessions::list_sessions,
             sessions::get_session_detail,
             sessions::rename_session,

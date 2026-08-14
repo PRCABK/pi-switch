@@ -25,6 +25,10 @@ export interface CatalogModel {
   contextWindow: string;
 }
 
+export interface ProviderModel {
+  id: string;
+}
+
 export interface SessionSummary {
   id: string;
   name?: string;

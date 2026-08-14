@@ -4,7 +4,7 @@ import { ArrowDownToLine, Database, Pencil, Plus, RefreshCw, Search, Save, Trash
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api } from "../api";
 import { loadSettings } from "../settings";
-import type { CatalogModel, ModelConfig } from "../types";
+import type { CatalogModel, ModelConfig, ProviderModel } from "../types";
 
 const loading = ref(false);
 const saving = ref(false);
@@ -20,9 +20,20 @@ const catalogQuery = reactive({ name: "", provider: "" });
 const catalogResults = ref<CatalogModel[]>([]);
 const catalogPreview = ref<ModelConfig | null>(null);
 const catalogSelected = ref<CatalogModel | null>(null);
+const catalogSelectedRows = ref<CatalogModel[]>([]);
+const catalogBatchLoading = ref(false);
 const importForm = reactive({ targetProvider: "", baseUrl: "", apiKey: "$CUSTOM_PROVIDER_API_KEY" });
 const validationVisible = ref(false);
 const validationOutput = ref("");
+
+const providerModelsVisible = ref(false);
+const providerModelsLoading = ref(false);
+const providerModels = ref<ProviderModel[]>([]);
+const providerModelsStep = ref<1 | 2>(1);
+const providerModelsSelectedIds = ref<string[]>([]);
+const v1SearchLoading = ref(false);
+const v1GroupedResults = ref<{ provider: string; models: CatalogModel[] }[]>([]);
+const v1CheckedPaths = ref<Set<string>>(new Set());
 
 const providers = computed(() => Object.entries(config.value.providers || {}).map(([id, value]) => ({ id, value })));
 const selected = computed(() => config.value.providers[selectedProvider.value]);
@@ -189,6 +200,102 @@ async function saveConfig() {
   }
 }
 
+async function openProviderModels() {
+  if (!selected.value) return ElMessage.warning("请先选择一个 Provider");
+  const baseUrl = String(selected.value.baseUrl || "");
+  if (!baseUrl) return ElMessage.warning("当前 Provider 未配置 Base URL");
+  providerModelsVisible.value = true;
+  providerModels.value = [];
+  providerModelsStep.value = 1;
+  providerModelsSelectedIds.value = [];
+  v1GroupedResults.value = [];
+  v1CheckedPaths.value = new Set();
+  providerModelsLoading.value = true;
+  try {
+    const result = await api.fetchProviderModels(
+      baseUrl,
+      String(selected.value.apiKey || ""),
+      Boolean(selected.value.authHeader),
+    );
+    providerModels.value = result;
+    if (!result.length) ElMessage.info("/v1/models 返回的列表为空");
+  } catch (error) {
+    ElMessage.error(errorText(error));
+    providerModelsVisible.value = false;
+  } finally {
+    providerModelsLoading.value = false;
+  }
+}
+
+async function v1SearchSelected() {
+  if (!providerModelsSelectedIds.value.length) return ElMessage.warning("请先勾选要查询的模型 ID");
+  v1SearchLoading.value = true;
+  v1GroupedResults.value = [];
+  v1CheckedPaths.value = new Set();
+  try {
+    const grouped = new Map<string, CatalogModel[]>();
+    for (const id of providerModelsSelectedIds.value) {
+      try {
+        const hits = await api.searchCatalog(id, undefined);
+        for (const hit of hits) {
+          if (!grouped.has(hit.provider)) grouped.set(hit.provider, []);
+          grouped.get(hit.provider)!.push(hit);
+        }
+      } catch (error) {
+        console.error(`搜索 ${id} 失败`, error);
+      }
+    }
+    v1GroupedResults.value = [...grouped.entries()].map(([provider, models]) => ({ provider, models }));
+    if (v1GroupedResults.value.length) providerModelsStep.value = 2;
+    else ElMessage.info("未在 pi.dev 匹配到任何模型");
+  } finally {
+    v1SearchLoading.value = false;
+  }
+}
+
+function v1TogglePath(path: string, checked: boolean) {
+  if (checked) v1CheckedPaths.value.add(path);
+  else v1CheckedPaths.value.delete(path);
+  v1CheckedPaths.value = new Set(v1CheckedPaths.value);
+}
+
+function v1ToggleProvider(provider: string, checked: boolean) {
+  const group = v1GroupedResults.value.find((item) => item.provider === provider);
+  if (!group) return;
+  for (const model of group.models) {
+    if (checked) v1CheckedPaths.value.add(model.detailPath);
+    else v1CheckedPaths.value.delete(model.detailPath);
+  }
+  v1CheckedPaths.value = new Set(v1CheckedPaths.value);
+}
+
+async function v1BatchImport() {
+  if (!v1CheckedPaths.value.size) return ElMessage.warning("请勾选要导入的模型");
+  if (!selectedProvider.value) return ElMessage.warning("请先选择目标 Provider");
+  providerModelsLoading.value = true;
+  let imported = 0;
+  let failed = 0;
+  try {
+    for (const detailPath of v1CheckedPaths.value) {
+      try {
+        const preview = await api.fetchCatalogConfig(detailPath);
+        const sourceId = Object.keys(preview.providers)[0];
+        const source = preview.providers[sourceId] || {};
+        mergeIntoProvider(selectedProvider.value, source, config.value.providers[selectedProvider.value] || {});
+        imported += 1;
+      } catch (error) {
+        failed += 1;
+        console.error(`导入 ${detailPath} 失败`, error);
+      }
+    }
+    if (imported) ElMessage.success(`已导入 ${imported} 个模型${failed ? `，${failed} 个失败` : ""}，请确认后保存`);
+    else ElMessage.error("全部导入失败");
+    if (imported) providerModelsVisible.value = false;
+  } finally {
+    providerModelsLoading.value = false;
+  }
+}
+
 async function validateConfig() {
   try {
     const result = await api.validateModels(loadSettings().piPath || undefined);
@@ -258,6 +365,56 @@ function importCatalogConfig() {
   ElMessage.success(`已导入 ${catalogSelected.value?.name || "模型"}，请确认后保存`);
 }
 
+function catalogSelectionChange(rows: CatalogModel[]) {
+  catalogSelectedRows.value = rows;
+}
+
+async function batchImportCatalog() {
+  const rows = catalogSelectedRows.value;
+  if (!rows.length) return ElMessage.warning("请先勾选要导入的模型");
+  if (!selectedProvider.value) return ElMessage.warning("请先选择目标 Provider");
+  catalogBatchLoading.value = true;
+  let imported = 0;
+  let failed = 0;
+  try {
+    for (const row of rows) {
+      try {
+        const preview = await api.fetchCatalogConfig(row.detailPath);
+        const sourceId = Object.keys(preview.providers)[0];
+        const source = preview.providers[sourceId] || {};
+        mergeIntoProvider(selectedProvider.value, source, config.value.providers[selectedProvider.value] || {});
+        imported += 1;
+      } catch (error) {
+        failed += 1;
+        console.error(`导入 ${row.name} 失败`, error);
+      }
+    }
+    if (imported) ElMessage.success(`已导入 ${imported} 个模型${failed ? `，${failed} 个失败` : ""}，请确认后保存`);
+    else ElMessage.error("全部导入失败");
+    if (imported) catalogVisible.value = false;
+  } finally {
+    catalogBatchLoading.value = false;
+  }
+}
+
+function mergeIntoProvider(targetId: string, source: Record<string, unknown>, existing: Record<string, unknown>) {
+  const sourceApi = typeof source.api === "string" ? source.api : "";
+  const targetApi = typeof existing.api === "string" ? existing.api : sourceApi;
+  const sourceModels = Array.isArray(source.models) ? source.models as Record<string, unknown>[] : [];
+  const existingModels = Array.isArray(existing.models) ? existing.models as Record<string, unknown>[] : [];
+  const byId = new Map<string, Record<string, unknown>>();
+  existingModels.forEach((model) => byId.set(String(model.id), model));
+  sourceModels.forEach((model) => {
+    const imported = sourceApi && targetApi && sourceApi !== targetApi ? { ...model, api: sourceApi } : model;
+    byId.set(String(model.id), imported);
+  });
+  const merged: Record<string, unknown> = { ...source, ...existing, models: [...byId.values()] };
+  const current = config.value.providers[targetId] || {};
+  if (current.baseUrl) merged.baseUrl = current.baseUrl;
+  if (current.apiKey) merged.apiKey = current.apiKey;
+  config.value.providers[targetId] = merged;
+}
+
 onMounted(loadConfig);
 </script>
 
@@ -289,7 +446,7 @@ onMounted(loadConfig);
 
       <div class="panel">
         <template v-if="selected">
-          <div class="panel-header"><h2><span class="section-kicker">ACTIVE PROVIDER</span>{{ selectedProvider }}</h2><div class="toolbar"><el-button size="small" :icon="Pencil" @click="openEditor(selectedProvider)">编辑</el-button><el-button size="small" type="danger" plain :icon="Trash2" @click="removeProvider(selectedProvider)">删除</el-button></div></div>
+          <div class="panel-header"><h2><span class="section-kicker">ACTIVE PROVIDER</span>{{ selectedProvider }}</h2><div class="toolbar"><el-button size="small" :icon="RefreshCw" @click="openProviderModels">从 /v1/models 获取</el-button><el-button size="small" :icon="Pencil" @click="openEditor(selectedProvider)">编辑</el-button><el-button size="small" type="danger" plain :icon="Trash2" @click="removeProvider(selectedProvider)">删除</el-button></div></div>
           <div class="panel-body">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="Base URL">{{ selected.baseUrl || "使用内置地址" }}</el-descriptions-item>
@@ -339,9 +496,11 @@ onMounted(loadConfig);
     </el-dialog>
 
     <el-dialog v-model="catalogVisible" title="从 pi.dev 模型目录导入" width="920px" destroy-on-close>
-      <div class="toolbar catalog-toolbar"><el-input v-model="catalogQuery.name" style="width:280px" placeholder="模型名称，如 gpt-5.5" clearable @keyup.enter="searchCatalog" /><el-input v-model="catalogQuery.provider" style="width:210px" placeholder="Provider，如 openai" clearable @keyup.enter="searchCatalog" /><el-button type="primary" :icon="Search" :loading="catalogLoading" @click="searchCatalog">搜索</el-button></div>
+      <div class="toolbar catalog-toolbar"><el-input v-model="catalogQuery.name" style="width:280px" placeholder="模型名称，如 gpt-5.5" clearable @keyup.enter="searchCatalog" /><el-input v-model="catalogQuery.provider" style="width:210px" placeholder="Provider，如 openai" clearable @keyup.enter="searchCatalog" /><el-button type="primary" :icon="Search" :loading="catalogLoading" @click="searchCatalog">搜索</el-button><span v-if="catalogSelectedRows.length" class="muted" style="font-size:12px">已选 {{ catalogSelectedRows.length }} 个</span></div>
       <div v-if="!catalogPreview">
-        <el-table :data="catalogResults" height="420" border empty-text="输入名称后搜索">
+        <div v-if="catalogSelectedRows.length" class="toolbar" style="justify-content:flex-end;margin-bottom:10px"><el-button type="primary" :icon="ArrowDownToLine" :loading="catalogBatchLoading" @click="batchImportCatalog">批量导入选中</el-button></div>
+        <el-table :data="catalogResults" height="420" border empty-text="输入名称后搜索" @selection-change="catalogSelectionChange">
+          <el-table-column type="selection" width="46" />
           <el-table-column prop="name" label="模型" min-width="180" /><el-table-column prop="id" label="模型 ID" min-width="220" /><el-table-column prop="provider" label="Provider" width="160" /><el-table-column prop="contextWindow" label="上下文" width="110" />
           <el-table-column label="操作" width="100"><template #default="scope"><el-button link type="primary" :icon="ArrowDownToLine" @click="selectCatalogModel(scope.row)">获取配置</el-button></template></el-table-column>
         </el-table>
@@ -353,6 +512,39 @@ onMounted(loadConfig);
       <template #footer><el-button @click="catalogVisible = false">取消</el-button><el-button v-if="catalogPreview" type="primary" @click="importCatalogConfig">导入配置</el-button></template>
     </el-dialog>
 
+    <el-dialog v-model="providerModelsVisible" title="从 Provider /v1/models 获取模型" width="960px" destroy-on-close>
+      <div v-loading="providerModelsLoading">
+        <div v-if="providerModelsStep === 1">
+          <p class="muted" style="font-size:13px;margin-bottom:10px">已从 <span class="code">{{ selected?.baseUrl }}/models</span> 拉到 {{ providerModels.length }} 个模型 ID。勾选后用这些 ID 去 pi.dev 精准搜索，再按 Provider 分组选择导入。</p>
+          <div class="toolbar" style="justify-content:flex-end;margin-bottom:10px"><span class="muted" style="font-size:12px">已选 {{ providerModelsSelectedIds.length }} / {{ providerModels.length }}</span><el-button type="primary" :icon="Search" :loading="v1SearchLoading" :disabled="!providerModelsSelectedIds.length" @click="v1SearchSelected">搜索 pi.dev</el-button></div>
+          <el-table :data="providerModels" height="440" border empty-text="没有拉到模型 ID" @selection-change="(rows: ProviderModel[]) => providerModelsSelectedIds = rows.map((r: ProviderModel) => r.id)">
+            <el-table-column type="selection" width="46" />
+            <el-table-column prop="id" label="模型 ID" />
+          </el-table>
+        </div>
+        <div v-else>
+          <el-button link @click="providerModelsStep = 1">← 返回模型 ID 列表</el-button>
+          <p class="muted" style="font-size:13px;margin:10px 0">已按 Provider 分组展示命中的 pi.dev 模型，勾选要导入的模型后点「批量导入」。</p>
+          <div class="toolbar" style="justify-content:flex-end;margin-bottom:10px"><span class="muted" style="font-size:12px">已选 {{ v1CheckedPaths.size }} 个</span><el-button type="primary" :icon="ArrowDownToLine" @click="v1BatchImport">批量导入</el-button></div>
+          <div v-for="group in v1GroupedResults" :key="group.provider" class="v1-group">
+            <div class="v1-group-head"><el-checkbox :model-value="group.models.every((m) => v1CheckedPaths.has(m.detailPath))" @change="(val: boolean) => v1ToggleProvider(group.provider, Boolean(val))">Provider：{{ group.provider }}</el-checkbox><span class="muted" style="font-size:12px">{{ group.models.length }} 个命中</span></div>
+            <el-table :data="group.models" border size="small">
+              <el-table-column width="46"><template #default="scope"><el-checkbox :model-value="v1CheckedPaths.has(scope.row.detailPath)" @change="(val: boolean) => v1TogglePath(scope.row.detailPath, Boolean(val))" /></template></el-table-column>
+              <el-table-column prop="name" label="模型" min-width="170" />
+              <el-table-column prop="id" label="模型 ID" min-width="220" />
+              <el-table-column prop="contextWindow" label="上下文" width="110" />
+            </el-table>
+          </div>
+        </div>
+      </div>
+      <template #footer><el-button @click="providerModelsVisible = false">取消</el-button></template>
+    </el-dialog>
+
     <el-dialog v-model="validationVisible" title="pi --list-models" width="820px"><pre class="json-preview">{{ validationOutput }}</pre></el-dialog>
   </section>
 </template>
+
+<style scoped>
+.v1-group { margin-bottom: 16px; }
+.v1-group-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-weight: 600; }
+</style>

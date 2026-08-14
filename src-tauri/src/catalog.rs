@@ -26,15 +26,15 @@ fn join_base_url(base_url: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn fetch_provider_models(base_url: String, api_key: Option<String>, auth_header: bool) -> Result<Vec<ProviderModel>, String> {
+pub async fn fetch_provider_models(base_url: String, api_key: Option<String>) -> Result<Vec<ProviderModel>, String> {
     let url = join_base_url(&base_url)?;
     let mut request = client()?.get(&url);
-    if auth_header {
-        let key = api_key.unwrap_or_default();
-        let key = key.trim();
-        if !key.is_empty() && !key.starts_with('$') && !key.starts_with('!') {
-            request = request.header("Authorization", format!("Bearer {key}"));
-        }
+    let key = api_key.unwrap_or_default();
+    let key = key.trim();
+    // 只要存在明文 apiKey（非空、非环境变量引用）就自动带 Authorization: Bearer。
+    // 不依赖 authHeader 开关：多数 Provider 配置不显式写 authHeader，但 /v1/models 仍需鉴权。
+    if !key.is_empty() && !key.starts_with('$') && !key.starts_with('!') {
+        request = request.header("Authorization", format!("Bearer {key}"));
     }
     let response = request.send().await.map_err(|error| format!("请求 /v1/models 失败：{error}"))?;
     let status = response.status();

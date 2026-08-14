@@ -215,7 +215,6 @@ async function openProviderModels() {
     const result = await api.fetchProviderModels(
       baseUrl,
       String(selected.value.apiKey || ""),
-      Boolean(selected.value.authHeader),
     );
     providerModels.value = result;
     if (!result.length) ElMessage.info("/v1/models 返回的列表为空");

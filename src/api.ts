@@ -22,8 +22,8 @@ export const api = {
     invoke<CatalogModel[]>("search_catalog", { name, provider }),
   fetchCatalogConfig: (detailPath: string) =>
     invoke<ModelConfig>("fetch_catalog_config", { detailPath }),
-  fetchProviderModels: (baseUrl: string, apiKey?: string, authHeader?: boolean) =>
-    invoke<ProviderModel[]>("fetch_provider_models", { baseUrl, apiKey, authHeader }),
+  fetchProviderModels: (baseUrl: string, apiKey?: string) =>
+    invoke<ProviderModel[]>("fetch_provider_models", { baseUrl, apiKey }),
   listSessions: (sessionsDir?: string) =>
     invoke<SessionSummary[]>("list_sessions", { sessionsDir }),
   getSessionDetail: (sessionPath: string) =>

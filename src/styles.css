@@ -1281,44 +1281,49 @@ a,
 .metric-card {
   position: relative;
   min-width: 0;
-  min-height: 138px;
-  padding: 18px;
+  min-height: 128px;
+  padding: 16px 18px;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-bg-panel);
   box-shadow: var(--shadow-sm);
+  transition: border-color 150ms var(--ease-standard);
 }
 
-.metric-card--violet,
-.metric-card--cyan,
-.metric-card--rose,
-.metric-card--mist {
-  /* 仅保留语义色用于图标，不再有装饰色块 */
+.metric-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+/* 「今日」强调卡：浅 accent 底，弱化突出今日这条数据 */
+.metric-card--accent {
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 16%, var(--color-border-subtle));
 }
 
 .metric-icon {
   position: absolute;
-  top: 16px;
+  top: 15px;
   right: 16px;
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-muted);
+  background: var(--color-bg-panel);
 }
 
-.metric-card--violet .metric-icon { color: var(--data-violet); }
-.metric-card--cyan .metric-icon { color: var(--data-cyan); }
-.metric-card--rose .metric-icon { color: var(--data-rose); }
-.metric-card--mist .metric-icon { color: var(--data-mist); }
+.metric-card--accent .metric-icon {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  background: var(--color-bg-panel);
+}
 
 .metric-card > span {
   display: block;
-  padding-right: 36px;
+  padding-right: 34px;
   color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 600;
@@ -1326,10 +1331,10 @@ a,
 
 .metric-card > strong {
   display: block;
-  margin-top: 18px;
+  margin-top: 16px;
   overflow: hidden;
   color: var(--color-text-primary);
-  font-size: clamp(26px, 2.4vw, 34px);
+  font-size: clamp(24px, 2.2vw, 30px);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -1340,7 +1345,7 @@ a,
 
 .metric-card > small {
   display: block;
-  margin-top: 9px;
+  margin-top: 8px;
   overflow: hidden;
   color: var(--color-text-tertiary);
   font-size: 10px;
@@ -1372,11 +1377,67 @@ a,
   min-width: 0;
 }
 
+/* 图表标题区：标题 + 内联汇总数据 */
+.usage-chart-title {
+  display: flex;
+  min-width: 0;
+  gap: 16px;
+  align-items: center;
+}
+
+.usage-chart-title h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-control);
+  font-weight: 650;
+}
+
+.usage-chart-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.usage-meta-item {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+  color: var(--color-text-tertiary);
+}
+
+.usage-meta-item .usage-meta-label {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.usage-meta-item b {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-meta-item.is-up b { color: var(--color-success); }
+.usage-meta-item.is-down b { color: var(--color-danger); }
+.usage-meta-item.is-up b svg,
+.usage-meta-item.is-down b svg {
+  vertical-align: -1px;
+  margin-right: 1px;
+}
+
+.usage-meta-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--color-border-default);
+}
+
 .usage-chart {
   display: flex;
-  height: 280px;
-  padding: 22px 18px 14px;
-  gap: 6px;
+  height: 260px;
+  padding: 20px 18px 12px;
+  gap: 5px;
   align-items: stretch;
   overflow-x: auto;
 }
@@ -1385,14 +1446,15 @@ a,
   display: grid;
   min-width: 14px;
   flex: 1;
-  grid-template-rows: 16px minmax(0, 1fr) 18px;
-  gap: 5px;
+  grid-template-rows: 15px minmax(0, 1fr) 16px;
+  gap: 4px;
   align-items: end;
   text-align: center;
 }
 
 .usage-chart--dense .usage-bar-column {
-  min-width: 8px;
+  min-width: 7px;
+  gap: 3px;
 }
 
 .usage-bar-value,
@@ -1420,9 +1482,24 @@ a,
   left: 0;
   min-height: 2px;
   border-radius: var(--radius-xs) var(--radius-xs) 0 0;
-  background: linear-gradient(to top, #6b7280, #18181b);
+  background: linear-gradient(to top, #9ca3af, #4b5563);
   transform-origin: bottom;
   animation: usage-bar-enter 420ms var(--ease-fluid) both;
+  transition: background 150ms var(--ease-standard);
+}
+
+.usage-bar-column:hover .usage-bar {
+  background: linear-gradient(to top, #6b7280, #18181b);
+}
+
+/* 峰值柱：实色 near-black 突出 */
+.usage-bar-column.is-peak .usage-bar {
+  background: var(--color-accent);
+}
+
+.usage-bar-column.is-peak .usage-bar-value {
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
 @keyframes usage-bar-enter {
@@ -1430,9 +1507,46 @@ a,
   to { opacity: 1; transform: scaleY(1); }
 }
 
+.usage-chart-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 18px 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-muted);
+  font-size: 10px;
+}
+
+.usage-chart-footer .code {
+  color: var(--color-text-secondary);
+}
+
+.usage-chart-footer .muted {
+  font-size: 10px;
+}
+
+/* Token 构成：堆叠总条 + 分项列表 */
+.mix-stack {
+  display: flex;
+  height: 8px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-active);
+}
+
+.mix-stack-seg {
+  height: 100%;
+  min-width: 0;
+}
+
+.mix-stack-seg--rose { background: var(--data-rose); }
+.mix-stack-seg--violet { background: var(--data-violet); }
+.mix-stack-seg--cyan { background: var(--data-cyan); }
+.mix-stack-seg--mist { background: var(--data-mist); }
+
 .token-mix-list {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .token-mix-item {
@@ -1441,7 +1555,7 @@ a,
 
 .token-mix-head {
   display: flex;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
   gap: 10px;
   align-items: center;
   justify-content: space-between;
@@ -1466,12 +1580,12 @@ a,
   display: inline-block;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: 2px;
 }
 
 .mix-track,
 .ranking-track {
-  height: 6px;
+  height: 5px;
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--color-bg-active);
@@ -1496,8 +1610,10 @@ a,
   margin-top: 5px;
   color: var(--color-text-tertiary);
   font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }
 
+/* 模型排名 */
 .ranking-list {
   max-height: 390px;
   overflow: auto;
@@ -1505,8 +1621,8 @@ a,
 
 .ranking-row {
   display: grid;
-  padding: 13px 16px;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  padding: 11px 16px;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   border-bottom: 1px solid var(--color-border-subtle);
@@ -1516,9 +1632,35 @@ a,
   border-bottom: 0;
 }
 
+.ranking-row:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Top 1 行：accent 底 */
+.ranking-row.is-top {
+  background: var(--color-accent-soft);
+}
+
 .ranking-index {
   color: var(--color-text-tertiary);
-  font: 9px var(--font-family-mono);
+  font: 600 10px var(--font-family-mono);
+}
+
+/* Top 3 序号：实色圈 */
+.ranking-index--top {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-active);
+  font-size: 9px;
+}
+
+.ranking-row.is-top .ranking-index--top {
+  color: var(--color-text-inverse);
+  background: var(--color-accent);
 }
 
 .ranking-main {
@@ -1527,16 +1669,21 @@ a,
 
 .ranking-main strong {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
   overflow: hidden;
   color: var(--color-text-primary);
   font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ranking-track span {
-  background: linear-gradient(90deg, #6b7280, #18181b);
+  background: linear-gradient(90deg, #9ca3af, #4b5563);
+}
+
+.ranking-row.is-top .ranking-track span {
+  background: var(--color-accent);
 }
 
 .ranking-value {
@@ -1557,6 +1704,7 @@ a,
   margin-top: 3px;
   color: var(--color-text-tertiary);
   font-size: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .provider-list {
@@ -1567,8 +1715,8 @@ a,
 .provider-usage {
   position: relative;
   display: flex;
-  min-height: 60px;
-  padding: 12px 14px;
+  min-height: 58px;
+  padding: 11px 14px;
   overflow: hidden;
   gap: 12px;
   align-items: center;
@@ -1592,6 +1740,7 @@ a,
 .provider-usage strong {
   color: var(--color-text-primary);
   font-size: 11px;
+  font-weight: 600;
 }
 
 .provider-usage small,
@@ -1599,6 +1748,7 @@ a,
   margin-top: 3px;
   color: var(--color-text-tertiary);
   font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }
 
 .provider-amount {

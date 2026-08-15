@@ -42,13 +42,6 @@ async function closeWindow() {
       </div>
     </header>
 
-    <div class="ambient-shapes" aria-hidden="true">
-      <span class="ambient-blob ambient-blob--rose"></span>
-      <span class="ambient-blob ambient-blob--cyan"></span>
-      <span class="ambient-blob ambient-blob--violet"></span>
-      <span class="ambient-line"></span>
-    </div>
-
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"><BrainCircuit :size="21" :stroke-width="1.8" /></div>

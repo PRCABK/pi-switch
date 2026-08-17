@@ -15,6 +15,32 @@ const chartDays = computed(() => {
   return range.value === "all" ? days : days.slice(-Number(range.value));
 });
 const maxDailyTokens = computed(() => Math.max(1, ...chartDays.value.map((day) => day.totalTokens)));
+const activeChartDay = ref<number | null>(null);
+
+// SVG 坐标使用固定 viewBox，让趋势图不受容器宽度影响；单日数据置中展示为数据点，而不是撑满的柱子。
+const lineChart = computed(() => {
+  const width = 1000;
+  const baseline = 184;
+  const top = 20;
+  const horizontalPadding = 42;
+  const usableHeight = baseline - top;
+  const days = chartDays.value;
+  const count = days.length;
+  const points = days.map((day, index) => {
+    const x = count === 1
+      ? width / 2
+      : horizontalPadding + index * ((width - horizontalPadding * 2) / (count - 1));
+    const y = baseline - (day.totalTokens / maxDailyTokens.value) * usableHeight;
+    return { x, y, day, index };
+  });
+  const linePath = points.length > 1
+    ? `M ${points.map((point) => `${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" L ")}`
+    : "";
+  const areaPath = points.length > 1
+    ? `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${baseline} L ${points[0].x.toFixed(2)} ${baseline} Z`
+    : "";
+  return { width, baseline, points, linePath, areaPath };
+});
 const maxModelTokens = computed(() => Math.max(1, ...(stats.value?.models.map((model) => model.totalTokens) ?? [])));
 const maxProviderTokens = computed(() => Math.max(1, ...(stats.value?.providers.map((provider) => provider.totalTokens) ?? [])));
 const hasUsage = computed(() => Boolean(stats.value?.totals.requests));
@@ -143,11 +169,31 @@ onMounted(loadUsage);
               <el-radio-button value="all">全部</el-radio-button>
             </el-radio-group>
           </div>
-          <div class="usage-chart" :class="{ 'usage-chart--dense': chartDays.length > 45 }">
-            <div v-for="(day, index) in chartDays" :key="day.date" class="usage-bar-column" :class="{ 'is-peak': day.totalTokens === rangeSummary.peak.totalTokens && day.totalTokens > 0 }" :title="`${day.date} · ${formatFullTokens(day.totalTokens)} tokens · ${formatCost(day.totalCost)}`">
-              <span class="usage-bar-value">{{ chartDays.length <= 14 && day.totalTokens ? formatTokens(day.totalTokens) : "" }}</span>
-              <div class="usage-bar-track"><span class="usage-bar" :style="{ height: `${Math.max(3, day.totalTokens / maxDailyTokens * 100)}%` }"></span></div>
-              <span class="usage-bar-label">{{ showDayLabel(index) ? dayLabel(day.date) : "" }}</span>
+          <div class="usage-chart" :class="{ 'usage-chart--single': chartDays.length === 1 }" @mouseleave="activeChartDay = null">
+            <svg class="usage-line-chart" :viewBox="`0 0 ${lineChart.width} 220`" preserveAspectRatio="none" role="img" aria-label="每日 Token 使用趋势">
+              <defs>
+                <linearGradient id="usage-chart-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#18181b" stop-opacity="0.18" />
+                  <stop offset="100%" stop-color="#18181b" stop-opacity="0.01" />
+                </linearGradient>
+              </defs>
+              <line class="usage-line-grid" x1="0" :y1="lineChart.baseline" :x2="lineChart.width" :y2="lineChart.baseline" />
+              <line class="usage-line-grid usage-line-grid--faint" x1="0" y1="102" :x2="lineChart.width" y2="102" />
+              <path v-if="lineChart.areaPath" class="usage-line-area" :d="lineChart.areaPath" />
+              <path v-if="lineChart.linePath" class="usage-line-path" :d="lineChart.linePath" />
+              <g v-for="point in lineChart.points" :key="point.day.date" class="usage-line-point-group" @mouseenter="activeChartDay = point.index">
+                <line class="usage-line-guide" :class="{ 'is-active': activeChartDay === point.index }" :x1="point.x" :x2="point.x" :y1="point.y" :y2="lineChart.baseline" />
+                <circle class="usage-line-hit" :cx="point.x" :cy="point.y" r="20" />
+                <circle class="usage-line-point" :class="{ 'is-active': activeChartDay === point.index, 'is-peak': point.day.totalTokens === rangeSummary.peak.totalTokens && point.day.totalTokens > 0 }" :cx="point.x" :cy="point.y" r="4.5" />
+                <text v-if="showDayLabel(point.index)" class="usage-line-label" :x="point.x" y="211">{{ dayLabel(point.day.date) }}</text>
+              </g>
+            </svg>
+            <div v-if="activeChartDay !== null" class="usage-line-tooltip" :style="{ left: `${lineChart.points[activeChartDay].x / 10}%` }">
+              <strong>{{ formatTokens(lineChart.points[activeChartDay].day.totalTokens) }}</strong>
+              <span>{{ lineChart.points[activeChartDay].day.date }} · {{ lineChart.points[activeChartDay].day.requests }} 次请求</span>
+            </div>
+            <div v-if="chartDays.length === 1" class="usage-line-single-value">
+              <strong>{{ formatTokens(chartDays[0].totalTokens) }}</strong><span>{{ chartDays[0].date }} · 当日用量</span>
             </div>
           </div>
           <div class="usage-chart-footer">

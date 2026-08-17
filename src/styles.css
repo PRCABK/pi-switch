@@ -1434,77 +1434,106 @@ a,
 }
 
 .usage-chart {
-  display: flex;
-  height: 260px;
-  padding: 20px 18px 12px;
-  gap: 5px;
-  align-items: stretch;
-  overflow-x: auto;
-}
-
-.usage-bar-column {
-  display: grid;
-  min-width: 14px;
-  flex: 1;
-  grid-template-rows: 15px minmax(0, 1fr) 16px;
-  gap: 4px;
-  align-items: end;
-  text-align: center;
-}
-
-.usage-chart--dense .usage-bar-column {
-  min-width: 7px;
-  gap: 3px;
-}
-
-.usage-bar-value,
-.usage-bar-label {
-  overflow: visible;
-  color: var(--color-text-tertiary);
-  font-size: 8px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.usage-bar-track {
   position: relative;
+  height: 260px;
+  padding: 16px 18px 4px;
+}
+
+.usage-line-chart {
+  display: block;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  border-radius: var(--radius-xs);
-  background: var(--color-bg-muted);
+  overflow: visible;
 }
 
-.usage-bar {
+.usage-line-grid {
+  stroke: var(--color-border-default);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.usage-line-grid--faint { opacity: .48; stroke-dasharray: 3 4; }
+
+.usage-line-area { fill: url(#usage-chart-fill); }
+
+.usage-line-path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  animation: usage-line-enter 650ms var(--ease-fluid) both;
+}
+
+.usage-line-guide {
+  opacity: 0;
+  stroke: var(--color-border-default);
+  stroke-dasharray: 2 3;
+  transition: opacity 150ms var(--ease-standard);
+  vector-effect: non-scaling-stroke;
+}
+
+.usage-line-guide.is-active { opacity: 1; }
+.usage-line-hit { fill: transparent; cursor: crosshair; }
+
+.usage-line-point {
+  fill: var(--color-bg-panel);
+  stroke: #6b7280;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  transition: r 150ms var(--ease-standard), fill 150ms var(--ease-standard), stroke 150ms var(--ease-standard);
+}
+
+.usage-line-point.is-peak,
+.usage-line-point.is-active { fill: var(--color-accent); stroke: var(--color-bg-panel); }
+.usage-line-point.is-active { r: 6; }
+
+.usage-line-label {
+  fill: var(--color-text-tertiary);
+  font-size: 9px;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-line-tooltip {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  min-height: 2px;
-  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
-  background: linear-gradient(to top, #9ca3af, #4b5563);
-  transform-origin: bottom;
-  animation: usage-bar-enter 420ms var(--ease-fluid) both;
-  transition: background 150ms var(--ease-standard);
+  z-index: 1;
+  top: 11px;
+  display: grid;
+  min-width: 122px;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-bg-panel) 94%, transparent);
+  box-shadow: 0 6px 18px rgb(24 24 27 / 10%);
+  pointer-events: none;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
 }
 
-.usage-bar-column:hover .usage-bar {
-  background: linear-gradient(to top, #6b7280, #18181b);
-}
+.usage-line-tooltip strong { color: var(--color-text-primary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.usage-line-tooltip span { color: var(--color-text-tertiary); font-size: 9px; white-space: nowrap; }
 
-/* 峰值柱：实色 near-black 突出 */
-.usage-bar-column.is-peak .usage-bar {
-  background: var(--color-accent);
+/* 单日用量以置中的数据点表达，避免一根巨柱占满整张图。 */
+.usage-chart--single .usage-line-point { r: 6; }
+.usage-chart--single .usage-line-grid--faint { display: none; }
+.usage-line-single-value {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  display: grid;
+  gap: 3px;
+  text-align: center;
+  transform: translateX(-50%);
 }
+.usage-line-single-value strong { color: var(--color-text-primary); font-size: 20px; font-weight: 680; font-variant-numeric: tabular-nums; }
+.usage-line-single-value span { color: var(--color-text-tertiary); font-size: 10px; white-space: nowrap; }
 
-.usage-bar-column.is-peak .usage-bar-value {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-@keyframes usage-bar-enter {
-  from { opacity: 0; transform: scaleY(0.06); }
-  to { opacity: 1; transform: scaleY(1); }
+@keyframes usage-line-enter {
+  from { opacity: 0; stroke-dasharray: 1200; stroke-dashoffset: 1200; }
+  to { opacity: 1; stroke-dasharray: 1200; stroke-dashoffset: 0; }
 }
 
 .usage-chart-footer {

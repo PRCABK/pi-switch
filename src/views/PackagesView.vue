@@ -30,6 +30,10 @@ function errorText(error: unknown): string {
   return typeof error === "string" ? error : error instanceof Error ? error.message : String(error);
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]!));
+}
+
 const sortedPackages = computed(() => {
   return [...packages.value].sort((a, b) => {
     if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
@@ -77,7 +81,7 @@ async function installFromInput() {
   if (!source) return ElMessage.warning("请输入插件来源，如 npm:pi-mcp-adapter");
   try {
     await ElMessageBox.confirm(
-      `将执行 <span class="code">pi install ${source}</span> 安装插件。插件拥有完整系统访问权限，请确认来源可信。`,
+      `将执行 <span class="code">pi install ${escapeHtml(source)}</span> 安装插件。插件拥有完整系统访问权限，请确认来源可信。`,
       "安装插件",
       { type: "warning", confirmButtonText: "安装", cancelButtonText: "取消", dangerouslyUseHTMLString: true },
     );
@@ -97,8 +101,8 @@ async function installFromGallery(item: PackageGalleryItem) {
   if (!source) return ElMessage.warning("无法解析安装命令");
   try {
     await ElMessageBox.confirm(
-      `将执行 <span class="code">${command}</span> 安装插件。插件拥有完整系统访问权限，请确认来源可信。`,
-      `安装 ${item.name}`,
+      `将执行 <span class="code">${escapeHtml(command)}</span> 安装插件。插件拥有完整系统访问权限，请确认来源可信。`,
+      `安装 ${escapeHtml(item.name)}`,
       { type: "warning", confirmButtonText: "安装", cancelButtonText: "取消", dangerouslyUseHTMLString: true },
     );
   } catch {
@@ -115,7 +119,7 @@ async function installFromGallery(item: PackageGalleryItem) {
 async function removePackage(pkg: InstalledPackage) {
   try {
     await ElMessageBox.confirm(
-      `将执行 <span class="code">pi remove ${pkg.source}</span> 卸载该插件，是否继续？`,
+      `将执行 <span class="code">pi remove ${escapeHtml(pkg.source)}</span> 卸载该插件，是否继续？`,
       "卸载插件",
       { type: "warning", confirmButtonText: "卸载", cancelButtonText: "取消", dangerouslyUseHTMLString: true },
     );
@@ -197,12 +201,24 @@ const filteredGallery = computed(() => {
 
 const installedSources = computed(() => new Set(packages.value.map((p) => p.source)));
 
+// Strip the source spec down to its package identity for dedup comparison.
+// npm:  identity is the package name: strip "npm:" prefix, then strip a trailing "@version".
+//       For scoped packages (@scope/pkg) the version @ is the LAST @, not the first.
+function baseName(source: string): string {
+  if (source.startsWith("npm:")) {
+    const rest = source.slice(4);
+    const idx = rest.lastIndexOf("@");
+    return idx > 0 ? rest.slice(0, idx) : rest;
+  }
+  return source;
+}
+
 function isInstalled(item: PackageGalleryItem): boolean {
   const source = item.installCommand.replace(/^pi\s+install\s+/, "").trim();
   if (installedSources.value.has(source)) return true;
-  // Also check by npm name (version-pinned entries).
-  const nameOnly = source.split("@")[0];
-  return [...installedSources.value].some((s) => s.split("@")[0] === nameOnly);
+  const nameOnly = baseName(source);
+  if (!nameOnly || nameOnly === source) return false;
+  return [...installedSources.value].some((s) => baseName(s) === nameOnly);
 }
 
 onMounted(loadPackages);

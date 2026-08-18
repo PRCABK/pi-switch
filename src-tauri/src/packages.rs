@@ -60,7 +60,7 @@ fn classify(source: &str) -> (String, String) {
         // Fallback: treat unknown specs as local.
         ("local", source.to_string())
     };
-    (kind, scope)
+    (kind.to_string(), scope)
 }
 
 fn read_packages_array(settings: &Value) -> Vec<Value> {

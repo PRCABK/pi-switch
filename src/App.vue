@@ -64,7 +64,7 @@ async function closeWindow() {
       <div class="sidebar-footer">
         <span class="status-dot"></span>
         <span>LOCAL / READY</span>
-        <span class="version">v0.2.5</span>
+        <span class="version">v0.3.0</span>
       </div>
     </aside>
     <main class="main-content">

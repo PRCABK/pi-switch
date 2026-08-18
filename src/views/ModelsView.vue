@@ -228,6 +228,23 @@ async function openProviderModels() {
 
 async function v1SearchSelected() {
   if (!providerModelsSelectedIds.value.length) return ElMessage.warning("请先勾选要查询的模型 ID");
+  // 先弹出输入框让用户限定 Provider，避免一次性加载过多 Provider 导致卡顿
+  let providerFilter = "";
+  try {
+    const promptResult = await ElMessageBox.prompt(
+      "限定 Provider 可以只搜索指定厂商的模型（如 openai、anthropic、opencode 等），避免一次性加载太多结果导致卡顿。留空则搜索全部。",
+      "搜索 pi.dev",
+      {
+        confirmButtonText: "搜索",
+        cancelButtonText: "取消",
+        inputPlaceholder: "Provider，如 openai",
+        inputValidator: () => true,
+      },
+    );
+    providerFilter = (promptResult.value || "").trim();
+  } catch {
+    return; // 用户取消
+  }
   v1SearchLoading.value = true;
   v1GroupedResults.value = [];
   v1CheckedPaths.value = new Set();
@@ -235,7 +252,7 @@ async function v1SearchSelected() {
     const grouped = new Map<string, CatalogModel[]>();
     for (const id of providerModelsSelectedIds.value) {
       try {
-        const hits = await api.searchCatalog(id, undefined);
+        const hits = await api.searchCatalog(id, providerFilter || undefined);
         for (const hit of hits) {
           if (!grouped.has(hit.provider)) grouped.set(hit.provider, []);
           grouped.get(hit.provider)!.push(hit);

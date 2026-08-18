@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { BrainCircuit, ChartColumn, MessageSquareText, Minus, Puzzle, Settings2, Square, X } from "@lucide/vue";
+import { BrainCircuit, ChartColumn, MessageSquareText, Minus, Package, Puzzle, Settings2, Square, X } from "@lucide/vue";
 
 const appWindow = isTauri() ? getCurrentWindow() : null;
 
@@ -56,8 +56,9 @@ async function closeWindow() {
         <el-menu-item index="/usage"><el-icon><ChartColumn /></el-icon><span>用量统计</span><small>01</small></el-menu-item>
         <el-menu-item index="/models"><el-icon><BrainCircuit /></el-icon><span>模型管理</span><small>02</small></el-menu-item>
         <el-menu-item index="/sessions"><el-icon><MessageSquareText /></el-icon><span>对话管理</span><small>03</small></el-menu-item>
-        <el-menu-item index="/skills"><el-icon><Puzzle /></el-icon><span>Skill 管理</span><small>04</small></el-menu-item>
-        <el-menu-item index="/settings"><el-icon><Settings2 /></el-icon><span>应用设置</span><small>05</small></el-menu-item>
+        <el-menu-item index="/packages"><el-icon><Package /></el-icon><span>插件管理</span><small>04</small></el-menu-item>
+        <el-menu-item index="/skills"><el-icon><Puzzle /></el-icon><span>Skill 管理</span><small>05</small></el-menu-item>
+        <el-menu-item index="/settings"><el-icon><Settings2 /></el-icon><span>应用设置</span><small>06</small></el-menu-item>
       </el-menu>
 
       <div class="sidebar-footer">

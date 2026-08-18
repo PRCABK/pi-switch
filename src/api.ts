@@ -3,8 +3,10 @@ import type {
   AppInfo,
   CatalogModel,
   CommandResult,
+  InstalledPackage,
   ModelConfig,
   ModelConfigFile,
+  PackageGalleryItem,
   ProviderModel,
   SessionDetail,
   SessionSummary,
@@ -48,4 +50,14 @@ export const api = {
     invoke<CommandResult>("export_session", { sessionPath, piPath }),
   validateModels: (piPath?: string) =>
     invoke<CommandResult>("validate_models", { piPath }),
+  listPackages: (piPath?: string) =>
+    invoke<InstalledPackage[]>("list_packages", { piPath }),
+  installPackage: (source: string, piPath?: string) =>
+    invoke<CommandResult>("install_package", { source, piPath }),
+  removePackage: (source: string, piPath?: string) =>
+    invoke<CommandResult>("remove_package", { source, piPath }),
+  updatePackages: (piPath?: string) =>
+    invoke<CommandResult>("update_packages", { piPath }),
+  searchPackages: (name?: string) =>
+    invoke<PackageGalleryItem[]>("search_packages", { name }),
 };

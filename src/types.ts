@@ -70,6 +70,24 @@ export interface CommandResult {
   output: string;
 }
 
+export interface InstalledPackage {
+  source: string;
+  kind: string;
+  scope: string;
+  pinned: boolean;
+}
+
+export interface PackageGalleryItem {
+  name: string;
+  description: string;
+  provider: string;
+  types: string;
+  downloads: string;
+  updated: string;
+  detailPath: string;
+  installCommand: string;
+}
+
 export interface SkillInfo {
   id: string;
   name: string;

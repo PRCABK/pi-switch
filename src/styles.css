@@ -1172,6 +1172,37 @@ a,
   padding: 20px;
 }
 
+/* 关闭确认弹窗 */
+.close-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.close-dialog__text {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: 1.6;
+}
+
+.close-dialog__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  user-select: none;
+}
+
+.close-dialog__option input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-accent, #5b8def);
+  cursor: pointer;
+}
+
 .el-dialog__footer {
   padding: 13px 20px 17px;
   border-top: 1px solid var(--color-border-subtle);

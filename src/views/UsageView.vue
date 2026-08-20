@@ -7,17 +7,61 @@ import { loadSettings } from "../settings";
 import type { UsageStats } from "../types";
 
 const loading = ref(false);
-const range = ref<"7" | "30" | "all">("30");
+const range = ref<"7" | "30" | "all">("7");
 const stats = ref<UsageStats | null>(null);
+
+function calendarDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function zeroDay(date: string) {
+  return { date, totalTokens: 0, totalCost: 0, requests: 0, sessions: 0 };
+}
+
+function buildCalendarDays(days: number, source: UsageStats["daily"]) {
+  const byDate = new Map(source.map((day) => [day.date, day]));
+  const today = new Date();
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(today);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(today.getDate() - (days - index - 1));
+    const key = calendarDateKey(date);
+    return byDate.get(key) ?? zeroDay(key);
+  });
+}
 
 const chartDays = computed(() => {
   const days = stats.value?.daily ?? [];
-  return range.value === "all" ? days : days.slice(-Number(range.value));
+  return range.value === "all" ? days : buildCalendarDays(Number(range.value), days);
 });
 const maxDailyTokens = computed(() => Math.max(1, ...chartDays.value.map((day) => day.totalTokens)));
 const activeChartDay = ref<number | null>(null);
 
-// SVG 坐标使用固定 viewBox，让趋势图不受容器宽度影响；单日数据置中展示为数据点，而不是撑满的柱子。
+function smoothPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length < 2) return "";
+  let path = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] ?? points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[index + 2] ?? next;
+    const controlOne = {
+      x: current.x + (next.x - previous.x) / 6,
+      y: current.y + (next.y - previous.y) / 6,
+    };
+    const controlTwo = {
+      x: next.x - (afterNext.x - current.x) / 6,
+      y: next.y - (afterNext.y - current.y) / 6,
+    };
+    path += ` C ${controlOne.x.toFixed(2)} ${controlOne.y.toFixed(2)}, ${controlTwo.x.toFixed(2)} ${controlTwo.y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
+  }
+  return path;
+}
+
+// 使用平滑贝塞尔曲线，保留固定 viewBox 以避免窗口尺寸变化造成数据点跳动。
 const lineChart = computed(() => {
   const width = 1000;
   const baseline = 184;
@@ -33,10 +77,8 @@ const lineChart = computed(() => {
     const y = baseline - (day.totalTokens / maxDailyTokens.value) * usableHeight;
     return { x, y, day, index };
   });
-  const linePath = points.length > 1
-    ? `M ${points.map((point) => `${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" L ")}`
-    : "";
-  const areaPath = points.length > 1
+  const linePath = smoothPath(points);
+  const areaPath = linePath && points.length > 1
     ? `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${baseline} L ${points[0].x.toFixed(2)} ${baseline} Z`
     : "";
   return { width, baseline, points, linePath, areaPath };
@@ -150,7 +192,7 @@ onMounted(loadUsage);
         </article>
       </div>
 
-      <div v-if="hasUsage" class="usage-primary-grid">
+      <div class="usage-primary-grid">
         <div class="panel usage-chart-panel">
           <div class="panel-header">
             <div class="usage-chart-title">
@@ -160,7 +202,7 @@ onMounted(loadUsage);
                 <span class="usage-meta-divider"></span>
                 <span class="usage-meta-item"><i class="usage-meta-label">日均</i><b>{{ formatTokens(rangeSummary.avg) }}</b></span>
                 <span class="usage-meta-divider"></span>
-                <span class="usage-meta-item" v-if="dayDelta" :class="dayDelta.up ? 'is-up' : 'is-down'"><i class="usage-meta-label">环比</i><b><component :is="dayDelta.up ? TrendingUp : TrendingDown" :size="11" />{{ Math.abs(dayDelta.pct).toFixed(0) }}%</b></span>
+                <span class="usage-meta-item" v-if="dayDelta" :class="dayDelta.up ? 'is-down' : 'is-up'"><i class="usage-meta-label">环比</i><b><component :is="dayDelta.up ? TrendingUp : TrendingDown" :size="11" />{{ Math.abs(dayDelta.pct).toFixed(0) }}%</b></span>
               </div>
             </div>
             <el-radio-group v-model="range" size="small" class="range-control">
@@ -197,7 +239,7 @@ onMounted(loadUsage);
             </div>
           </div>
           <div class="usage-chart-footer">
-            <span class="code">峰值 {{ formatTokens(rangeSummary.peak.totalTokens) }} · {{ rangeSummary.peak.date || "-" }}</span>
+            <span class="code">峰值 {{ formatTokens(rangeSummary.peak.totalTokens) }} · {{ rangeSummary.peak.totalTokens ? rangeSummary.peak.date : "-" }}</span>
             <span class="muted">共 {{ rangeSummary.days }} 天 · {{ chartDays.reduce((s, d) => s + d.requests, 0) }} 次请求</span>
           </div>
         </div>

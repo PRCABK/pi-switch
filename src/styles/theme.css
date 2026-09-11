@@ -1,0 +1,732 @@
+/*
+ * Pi Switch · 设计令牌与外壳样式（PiDeck 设计语言）
+ * 纯白底 + zinc 中性灰 + 近黑主题色 + 小圆角 + 实线边框 + 零装饰。仅浅色模式。
+ * 令牌通过 Tailwind v4 @theme 暴露为工具类（bg-panel / text-ink-2 / border-line …），
+ * 组件层只保留跨页面复用的外壳与面板结构，页面专属样式写在各组件内。
+ */
+
+@import "tailwindcss";
+
+@theme {
+  /* 字体：系统字体栈（桌面应用不依赖外部字体），等宽用于代码/数据 */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "HarmonyOS Sans SC",
+    "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 字号阶梯 */
+  --text-micro: 12px;
+  --text-caption: 13px;
+  --text-control: 14px;
+  --text-body: 15px;
+  --text-title: 17px;
+  --text-brand: 19px;
+  --text-heading: 21px;
+
+  /* 色板：纯白基底 + 中性灰阶，色彩仅用于状态反馈 */
+  --color-app: #ffffff;
+  --color-canvas: #f7f7f8;
+  --color-panel: #ffffff;
+  --color-popover: #ffffff;
+  --color-muted: #f4f4f5;
+  --color-hover: #f4f4f5;
+  --color-active: #ececee;
+  --color-ink: #202124;
+  --color-ink-2: #4b5563;
+  --color-ink-3: #6b7280;
+  --color-inverse: #ffffff;
+  --color-line: #ececed;
+  --color-line-default: #e2e2e4;
+  --color-line-strong: #d4d4d8;
+
+  /* 主题色：近黑 zinc-900（主按钮/选中态） */
+  --color-accent: #18181b;
+  --color-accent-strong: #09090b;
+  --color-accent-soft: #f4f4f5;
+
+  /* 状态色 */
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warning: #b7791f;
+  --color-info: #2563eb;
+
+  /* 数据可视化色（克制、可区分） */
+  --color-data-rose: #6b7280;
+  --color-data-violet: #18181b;
+  --color-data-cyan: #2563eb;
+  --color-data-mist: #15803d;
+
+  /* 圆角：统一小圆角 */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* 阴影：极克制，以描边为主 */
+  --shadow-border: 0 0 0 1px rgba(9, 9, 11, 0.06);
+  --shadow-sm: 0 1px 2px 0 rgba(9, 9, 11, 0.05);
+  --shadow-popover:
+    0 4px 6px -1px rgba(9, 9, 11, 0.1), 0 2px 4px -2px rgba(9, 9, 11, 0.1);
+  --shadow-modal:
+    0 10px 15px -3px rgba(9, 9, 11, 0.1), 0 4px 6px -4px rgba(9, 9, 11, 0.1);
+
+  --ease-fluid: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  --animate-page-in: page-in 160ms var(--ease-standard) both;
+  --animate-line-enter: line-enter 650ms var(--ease-fluid) both;
+  --animate-card-in: card-in 320ms var(--ease-standard) backwards;
+  --animate-toast-in: toast-in 180ms var(--ease-fluid) both;
+  --animate-overlay-in: overlay-in 150ms var(--ease-standard) both;
+  --animate-content-in: content-in 180ms var(--ease-fluid) both;
+
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes line-enter {
+    from {
+      opacity: 0;
+      stroke-dasharray: 1200;
+      stroke-dashoffset: 1200;
+    }
+    to {
+      opacity: 1;
+      stroke-dasharray: 1200;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes overlay-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes content-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* 聚焦环：统一的 3px 半透明近黑外环 */
+@utility focus-ring {
+  outline: none;
+  box-shadow:
+    0 0 0 1px var(--color-accent) inset,
+    0 0 0 3px rgba(24, 24, 27, 0.16);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    overflow: hidden;
+    color: var(--color-ink);
+    background: var(--color-app);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    color: #fff;
+    background: rgba(24, 24, 27, 0.78);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* 滚动条：细滑块、透明轨道，融入面板背景 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+    background: rgba(9, 9, 11, 0.16);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(9, 9, 11, 0.28);
+    background-clip: padding-box;
+  }
+}
+
+@layer components {
+  /* ── 应用外壳 ───────────────────────────────── */
+  .app-shell {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-app);
+  }
+
+  /* ── 自定义标题栏：透明拖拽层 + 扁平窗口控件 ── */
+  .window-titlebar {
+    position: absolute;
+    z-index: 7;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 40px;
+    user-select: none;
+  }
+
+  .window-controls {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    height: 40px;
+  }
+
+  .window-control {
+    display: grid;
+    width: 40px;
+    height: 100%;
+    padding: 0;
+    place-items: center;
+    color: color-mix(in srgb, var(--color-ink) 76%, transparent);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    cursor: default;
+    transition:
+      background-color 120ms var(--ease-standard),
+      color 120ms var(--ease-standard);
+  }
+
+  .window-control svg {
+    pointer-events: none;
+  }
+
+  .window-control:hover {
+    background: var(--color-hover);
+    color: var(--color-ink);
+  }
+
+  .window-control:active {
+    background: var(--color-active);
+    color: var(--color-ink);
+  }
+
+  .window-control--close:hover {
+    background: var(--color-danger);
+    color: var(--color-inverse);
+  }
+
+  .window-control--close:active {
+    background: color-mix(in srgb, var(--color-danger) 86%, #000);
+    color: var(--color-inverse);
+  }
+
+  /* ── 侧栏：贴边、白底、右侧细分隔线 ─────────── */
+  .sidebar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    width: 240px;
+    flex: none;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    color: var(--color-ink);
+    border-right: 1px solid var(--color-line);
+    background: var(--color-panel);
+  }
+
+  .brand {
+    position: relative;
+    display: flex;
+    min-height: 40px;
+    padding: 16px 18px 18px;
+    gap: 11px;
+    align-items: center;
+  }
+
+  .brand-mark {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    place-items: center;
+    color: var(--color-inverse);
+    border-radius: var(--radius-lg);
+    background: var(--color-accent);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .nav-label {
+    padding: 12px 18px 7px;
+    color: var(--color-ink-3);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    position: relative;
+    display: flex;
+    height: 36px;
+    margin-bottom: 2px;
+    padding: 0 10px;
+    gap: 10px;
+    align-items: center;
+    color: var(--color-ink-2);
+    border-radius: var(--radius-md);
+    font-size: var(--text-control);
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background-color 120ms var(--ease-standard),
+      color 120ms var(--ease-standard);
+  }
+
+  .nav-item:hover {
+    color: var(--color-ink);
+    background: var(--color-hover);
+  }
+
+  .nav-item svg {
+    flex: none;
+    color: var(--color-ink-3);
+    transition: color 120ms var(--ease-standard);
+  }
+
+  .nav-item:hover svg {
+    color: var(--color-ink-2);
+  }
+
+  .nav-item--active,
+  .nav-item--active:hover {
+    color: var(--color-ink);
+    background: var(--color-active);
+  }
+
+  .nav-item--active svg,
+  .nav-item--active .nav-index {
+    color: var(--color-accent);
+  }
+
+  .nav-item--active::before {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 0;
+    width: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    content: "";
+  }
+
+  .nav-index {
+    margin-left: auto;
+    color: var(--color-ink-3);
+    font: 10px var(--font-mono);
+  }
+
+  .sidebar-footer {
+    display: flex;
+    margin: auto 18px 0;
+    padding: 15px 0 18px;
+    gap: 8px;
+    align-items: center;
+    color: var(--color-ink-3);
+    border-top: 1px solid var(--color-line);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+    box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.14);
+  }
+
+  /* ── 主内容区 ───────────────────────────────── */
+  .main-content {
+    position: relative;
+    min-width: 0;
+    flex: 1;
+    height: 100%;
+    overflow: auto;
+    background: var(--color-canvas);
+  }
+
+  .page {
+    position: relative;
+    width: 100%;
+    max-width: 1580px;
+    min-height: 100%;
+    margin: 0 auto;
+    padding: 32px 36px 52px;
+  }
+
+  .page-header {
+    display: flex;
+    min-height: 64px;
+    margin-bottom: 22px;
+    gap: 20px;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .page-title h1 {
+    margin: 0 0 7px;
+    color: var(--color-ink);
+    font-size: clamp(27px, 2.5vw, 34px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  .page-title h1::before {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-ink-3);
+    content: "PI SWITCH / LOCAL CONTROL";
+    font: 600 10px/1.2 var(--font-mono);
+    letter-spacing: 0.1em;
+  }
+
+  .page-title p {
+    max-width: 60ch;
+    margin: 0;
+    color: var(--color-ink-2);
+    font-size: var(--text-body);
+    line-height: 1.55;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* ── 面板：白底 + 细边框 + 小圆角，零装饰 ────── */
+  .panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    background: var(--color-panel);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .panel-header {
+    display: flex;
+    min-height: 52px;
+    padding: 12px 16px;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-line);
+    background: var(--color-panel);
+  }
+
+  .panel-header h2 {
+    display: flex;
+    min-width: 0;
+    margin: 0;
+    gap: 7px;
+    align-items: center;
+    color: var(--color-ink);
+    font-size: var(--text-control);
+    font-weight: 650;
+    letter-spacing: -0.005em;
+  }
+
+  .panel-header h2 svg {
+    color: var(--color-ink-3);
+  }
+
+  .panel-body {
+    padding: 18px;
+  }
+
+  .panel-index,
+  .count-mark {
+    color: var(--color-ink-3);
+    font: 10px var(--font-mono);
+    letter-spacing: 0.06em;
+  }
+
+  .section-kicker {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--color-ink-3);
+    font: 600 9px var(--font-mono);
+    letter-spacing: 0.1em;
+  }
+
+  .subsection-head {
+    display: flex;
+    margin: 22px 0 12px;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .subsection-head h3 {
+    margin: 0;
+    color: var(--color-ink);
+    font-size: var(--text-control);
+    font-weight: 650;
+  }
+
+  .empty-state {
+    padding: 48px 20px;
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .empty-state::before {
+    display: block;
+    width: 34px;
+    height: 34px;
+    margin: 0 auto 12px;
+    border: 1px solid var(--color-line-default);
+    border-radius: var(--radius-md);
+    background: var(--color-muted);
+    content: "";
+  }
+
+  .json-preview {
+    max-height: 420px;
+    margin: 0;
+    padding: 16px;
+    overflow: auto;
+    color: #d4d4d8;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: #18181b;
+    font: 11px/1.7 var(--font-mono);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* 路径提示条：面板同色的低强度信息条 */
+  .path-alert {
+    padding: 11px 14px;
+    color: var(--color-ink-2);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-muted);
+    font-size: var(--text-caption);
+  }
+}
+
+/* ── 响应式（外壳共用部分，页面内部布局由各组件自行适配）── */
+@media (max-width: 1100px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .page {
+    padding-right: 26px;
+    padding-left: 26px;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 64px;
+  }
+
+  .brand {
+    justify-content: center;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .brand-copy,
+  .nav-label,
+  .nav-item span,
+  .nav-index,
+  .sidebar-footer span:not(.status-dot) {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav-item--active::before {
+    left: -6px;
+  }
+
+  .sidebar-footer {
+    justify-content: center;
+    margin-inline: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .window-titlebar {
+    display: none;
+  }
+
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: 56px;
+    min-height: 56px;
+    flex-direction: row;
+    align-items: center;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .brand {
+    padding: 0 10px 0 12px;
+  }
+
+  .nav-menu {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    justify-content: flex-end;
+    padding: 0 6px;
+  }
+
+  .nav-item {
+    width: 42px;
+    min-width: 42px;
+    height: 40px;
+    margin: 0 1px;
+    flex: 0 0 42px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .main-content {
+    height: calc(100% - 56px);
+  }
+
+  .page {
+    padding: 22px 14px 36px;
+    overflow-x: hidden;
+  }
+
+  .page-header {
+    min-height: 0;
+    margin-bottom: 18px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .page-title h1 {
+    font-size: 24px;
+  }
+
+  .panel-body {
+    padding: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

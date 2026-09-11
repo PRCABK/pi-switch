@@ -3,6 +3,7 @@ dist/
 src-tauri/target/
 .idea/
 *.log
+PRCABK/
 pi-models-sample.html
 pi-model-detail-sample.html
 .DS_Store

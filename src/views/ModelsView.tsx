@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { ArrowDownToLine, Database, Pencil, Plus, RefreshCw, Save, Search, Trash2, Wrench } from "lucide-react";
+import { ArrowDownToLine, Pencil, Plus, RefreshCw, Save, Search, Trash2, Wrench } from "lucide-react";
 import { api } from "../api";
 import { loadSettings } from "../settings";
 import type { CatalogModel, ModelConfig, ProviderModel } from "../types";
 import { errorText } from "../lib/format";
-import { cn } from "../lib/utils";
 import { Alert } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
@@ -17,9 +16,13 @@ import { Panel, PanelBody, PanelHeader } from "../components/ui/panel";
 import { LoadingOverlay } from "../components/ui/spinner";
 import { Switch } from "../components/ui/switch";
 import { Table, TBody, TD, TH, THead, TR, TableEmpty } from "../components/ui/table";
-import { Tag } from "../components/ui/tag";
 
 const API_TYPES = ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"];
+
+/** 自定义 Headers 的常用模板，值使用与 apiKey 相同的 $ENV_VAR 解析语法。 */
+const HEADER_TEMPLATES: { id: string; label: string; headers: Record<string, string> }[] = [
+  { id: "portkey", label: "Portkey 网关", headers: { "x-portkey-api-key": "$PORTKEY_API_KEY" } },
+];
 
 interface ModelForm {
   id: string;
@@ -125,6 +128,7 @@ export default function ModelsView() {
   const [v1SearchLoading, setV1SearchLoading] = useState(false);
   const [v1GroupedResults, setV1GroupedResults] = useState<{ provider: string; models: CatalogModel[] }[]>([]);
   const [v1CheckedPaths, setV1CheckedPaths] = useState<Set<string>>(new Set());
+  const [providerModelsFromEditor, setProviderModelsFromEditor] = useState(false);
 
   const [modelDialogVisible, setModelDialogVisible] = useState(false);
   const [editingModelIndex, setEditingModelIndex] = useState(-1);
@@ -209,6 +213,25 @@ export default function ModelsView() {
     } catch (error) {
       toast.error(`JSON 配置有误：${errorText(error)}`);
     }
+  }
+
+  /**
+   * 把模板 Header 合并进编辑器内容：解析失败时不写回，避免覆盖用户正在编辑的文本；
+   * 同名键保留用户已设置的值。
+   */
+  function applyHeaderTemplate(headers: Record<string, string>) {
+    let current: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(editor.headers || "{}");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("不是 JSON 对象");
+      current = parsed as Record<string, unknown>;
+    } catch {
+      toast.warning("当前自定义 Headers 不是合法的 JSON 对象，请先修正后再插入模板");
+      return;
+    }
+    const kept = Object.keys(headers).filter((key) => key in current);
+    setEditor((prev) => ({ ...prev, headers: JSON.stringify({ ...headers, ...current }, null, 2) }));
+    if (kept.length) toast.info(`已插入模板，保留了你已设置的键：${kept.join("、")}`);
   }
 
   async function removeProvider(id: string) {
@@ -315,6 +338,28 @@ export default function ModelsView() {
     }
   }
 
+  /** 拉取 {baseUrl}/models 并打开向导，两个入口共用这里的状态重置与错误处理。 */
+  async function loadProviderModels(baseUrl: string, apiKey: string, fromEditor: boolean) {
+    setProviderModelsFromEditor(fromEditor);
+    setProviderModelsVisible(true);
+    setProviderModels([]);
+    setProviderModelsStep(1);
+    setProviderModelsChecked(new Set());
+    setV1GroupedResults([]);
+    setV1CheckedPaths(new Set());
+    setProviderModelsLoading(true);
+    try {
+      const result = await api.fetchProviderModels(baseUrl, apiKey);
+      setProviderModels(result);
+      if (!result.length) toast.info("/v1/models 返回的列表为空");
+    } catch (error) {
+      toast.error(errorText(error));
+      setProviderModelsVisible(false);
+    } finally {
+      setProviderModelsLoading(false);
+    }
+  }
+
   async function openProviderModels() {
     if (!selected) {
       toast.warning("请先选择一个 Provider");
@@ -325,23 +370,17 @@ export default function ModelsView() {
       toast.warning("当前 Provider 未配置 Base URL");
       return;
     }
-    setProviderModelsVisible(true);
-    setProviderModels([]);
-    setProviderModelsStep(1);
-    setProviderModelsChecked(new Set());
-    setV1GroupedResults([]);
-    setV1CheckedPaths(new Set());
-    setProviderModelsLoading(true);
-    try {
-      const result = await api.fetchProviderModels(baseUrl, String(selected.apiKey || ""));
-      setProviderModels(result);
-      if (!result.length) toast.info("/v1/models 返回的列表为空");
-    } catch (error) {
-      toast.error(errorText(error));
-      setProviderModelsVisible(false);
-    } finally {
-      setProviderModelsLoading(false);
+    await loadProviderModels(baseUrl, String(selected.apiKey || ""), false);
+  }
+
+  /** 新增或编辑 Provider 时用对话框里刚填的 Base URL 与 API Key 拉取，导入结果写回编辑器的模型配置字段。 */
+  async function openEditorProviderModels() {
+    const baseUrl = editor.baseUrl.trim();
+    if (!baseUrl) {
+      toast.warning("请先填写 Base URL");
+      return;
     }
+    await loadProviderModels(baseUrl, editor.apiKey, true);
   }
 
   async function v1SearchSelected() {
@@ -389,13 +428,26 @@ export default function ModelsView() {
       toast.warning("请勾选要导入的模型");
       return;
     }
-    if (!selectedProvider) {
+    if (!providerModelsFromEditor && !selectedProvider) {
       toast.warning("请先选择目标 Provider");
       return;
     }
+    let editorModels: Record<string, unknown>[] = [];
+    if (providerModelsFromEditor) {
+      try {
+        const parsed = JSON.parse(editor.models || "[]");
+        if (!Array.isArray(parsed)) throw new Error("不是 JSON 数组");
+        editorModels = parsed as Record<string, unknown>[];
+      } catch {
+        toast.warning("模型配置不是合法的 JSON 数组，请先修正后再导入");
+        return;
+      }
+    }
     const target = selectedProvider;
     setProviderModelsLoading(true);
-    let draft = config.providers[target] || {};
+    let draft: Record<string, unknown> = providerModelsFromEditor
+      ? { models: editorModels }
+      : config.providers[target] || {};
     let imported = 0;
     let failed = 0;
     try {
@@ -411,8 +463,13 @@ export default function ModelsView() {
         }
       }
       if (imported) {
-        setConfig((prev) => ({ ...prev, providers: { ...prev.providers, [target]: draft } }));
-        toast.success(`已导入 ${imported} 个模型${failed ? `，${failed} 个失败` : ""}，请确认后保存`);
+        if (providerModelsFromEditor) {
+          setEditor((prev) => ({ ...prev, models: JSON.stringify(draft.models ?? [], null, 2) }));
+        } else {
+          setConfig((prev) => ({ ...prev, providers: { ...prev.providers, [target]: draft } }));
+        }
+        const hint = providerModelsFromEditor ? "点「应用」后再保存配置" : "请确认后保存";
+        toast.success(`已导入 ${imported} 个模型${failed ? `，${failed} 个失败` : ""}，${hint}`);
         setProviderModelsVisible(false);
       } else {
         toast.error("全部导入失败");
@@ -558,55 +615,27 @@ export default function ModelsView() {
         配置文件：<span className="font-mono">{configPath}</span>
       </Alert>
 
-      <div className="mt-[18px] grid grid-cols-[minmax(280px,320px)_minmax(0,1fr)] gap-4 max-[1100px]:grid-cols-[minmax(250px,290px)_minmax(0,1fr)] max-[900px]:grid-cols-1">
-        <Panel>
-          <PanelHeader>
-            <h2>
-              <Database size={15} />
-              Providers <span className="count-mark">{String(providers.length).padStart(2, "0")}</span>
-            </h2>
-            <Button size="sm" icon={Plus} onClick={() => openEditor()}>
-              新增
+      <div className="mt-[18px] flex flex-wrap items-center gap-2">
+        {providers.length ? (
+          providers.map((provider) => (
+            <Button
+              key={provider.id}
+              size="sm"
+              variant={selectedProvider === provider.id ? "primary" : "default"}
+              onClick={() => setSelectedProvider(provider.id)}
+            >
+              {provider.id}
             </Button>
-          </PanelHeader>
-          <PanelBody>
-            {providers.length ? (
-              providers.map((provider) => {
-                const active = selectedProvider === provider.id;
-                return (
-                  <div
-                    key={provider.id}
-                    onClick={() => setSelectedProvider(provider.id)}
-                    className={cn(
-                      "relative mb-2 cursor-pointer overflow-hidden rounded-md border px-[15px] py-[13px] transition-[border-color,background-color,box-shadow] duration-150 last:mb-0",
-                      active
-                        ? "border-accent bg-accent-soft shadow-sm"
-                        : "border-line bg-panel hover:border-line-strong hover:bg-hover active:bg-active",
-                    )}
-                  >
-                    {active ? (
-                      <span className="absolute top-[13px] right-[13px] h-1.5 w-1.5 rounded-full bg-accent" />
-                    ) : null}
-                    <div className="flex items-center justify-between gap-2 pr-3.5 text-control font-semibold text-ink">
-                      <span className="truncate">{provider.id}</span>
-                      <Tag>{String(provider.value.api || "继承")}</Tag>
-                    </div>
-                    <div className="mt-1.5 truncate text-[11px] leading-[1.4] text-ink-2">
-                      {String(provider.value.baseUrl || "使用内置地址")}
-                    </div>
-                    <div className="mt-1.5 truncate text-[11px] leading-[1.4] text-ink-2">
-                      {Array.isArray(provider.value.models) ? provider.value.models.length : 0} 个自定义模型
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="empty-state">还没有自定义 Provider</div>
-            )}
-          </PanelBody>
-        </Panel>
+          ))
+        ) : (
+          <span className="text-caption text-ink-3">还没有自定义 Provider</span>
+        )}
+        <Button size="sm" icon={Plus} onClick={() => openEditor()}>
+          新增
+        </Button>
+      </div>
 
-        <Panel>
+      <Panel className="mt-4">
           {selected ? (
             <>
               <PanelHeader>
@@ -698,8 +727,7 @@ export default function ModelsView() {
           ) : (
             <div className="empty-state">选择或新增一个 Provider</div>
           )}
-        </Panel>
-      </div>
+      </Panel>
 
       <Dialog
         open={editorVisible}
@@ -759,6 +787,23 @@ export default function ModelsView() {
           </Checkbox>
         </Field>
         <Field label="自定义 Headers（JSON 对象）">
+          <div className="toolbar mb-2">
+            <Select
+              value=""
+              className="w-[190px]"
+              onChange={(event) => {
+                const template = HEADER_TEMPLATES.find((item) => item.id === event.target.value);
+                if (template) applyHeaderTemplate(template.headers);
+              }}
+            >
+              <option value="">插入常用模板…</option>
+              {HEADER_TEMPLATES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          </div>
           <Textarea
             rows={4}
             className="font-mono"
@@ -767,6 +812,12 @@ export default function ModelsView() {
           />
         </Field>
         <Field label="模型配置（JSON 数组）" className="mb-0">
+          <div className="toolbar mb-2">
+            <Button size="sm" icon={RefreshCw} onClick={() => void openEditorProviderModels()}>
+              从 /v1/models 获取
+            </Button>
+            <span className="text-[10px] text-ink-3">用上方填写的 Base URL 与 API Key 拉取，结果导入本字段</span>
+          </div>
           <Textarea
             rows={12}
             className="font-mono"
@@ -1063,8 +1114,11 @@ export default function ModelsView() {
           {providerModelsStep === 1 ? (
             <>
               <p className="mb-2.5 text-caption text-ink-2">
-                已从 <span className="font-mono">{String(selected?.baseUrl)}/models</span> 拉到 {providerModels.length}{" "}
-                个模型 ID。勾选后用这些 ID 去 pi.dev 精准搜索，再按 Provider 分组选择导入。
+                已从{" "}
+                <span className="font-mono">
+                  {providerModelsFromEditor ? editor.baseUrl.trim() : String(selected?.baseUrl)}/models
+                </span>{" "}
+                拉到 {providerModels.length} 个模型 ID。勾选后用这些 ID 去 pi.dev 精准搜索，再按 Provider 分组选择导入。
               </p>
               <div className="mb-2.5 flex items-center justify-end gap-2">
                 <span className="text-[12px] text-ink-2">

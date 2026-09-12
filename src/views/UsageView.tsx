@@ -21,6 +21,13 @@ interface ChartDay {
   sessions: number;
 }
 
+interface ChartPoint {
+  x: number;
+  y: number;
+  day: ChartDay;
+  index: number;
+}
+
 const TONE_CLASSES = {
   rose: { dot: "bg-data-rose", fill: "bg-data-rose", seg: "bg-data-rose" },
   violet: { dot: "bg-data-violet", fill: "bg-data-violet", seg: "bg-data-violet" },
@@ -78,6 +85,8 @@ export default function UsageView() {
   const [range, setRange] = useState<RangeValue>("7");
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [activeChartDay, setActiveChartDay] = useState<number | null>(null);
+  const [chartNode, setChartNode] = useState<HTMLDivElement | null>(null);
+  const [chartSize, setChartSize] = useState({ width: 0, height: 0 });
 
   async function loadUsage() {
     setLoading(true);
@@ -94,6 +103,19 @@ export default function UsageView() {
     void loadUsage();
   }, []);
 
+  // 图表坐标系直接用像素测量值：viewBox 与实际尺寸一致，拉伸比例恒为 1，
+  // 圆点与文字不会被非等比缩放压变形。
+  // 图表容器要等 stats 到达后才挂载，因此用回调 ref 驱动观察器，而不是在挂载 effect 里取 ref。
+  useEffect(() => {
+    if (!chartNode) return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) setChartSize({ width: rect.width, height: rect.height });
+    });
+    observer.observe(chartNode);
+    return () => observer.disconnect();
+  }, [chartNode]);
+
   const chartDays = useMemo(() => {
     const days = stats?.daily ?? [];
     return range === "all" ? days : buildCalendarDays(Number(range), days);
@@ -104,13 +126,18 @@ export default function UsageView() {
     [chartDays],
   );
 
-  // 使用平滑贝塞尔曲线，保留固定 viewBox 以避免窗口尺寸变化造成数据点跳动。
   const lineChart = useMemo(() => {
-    const width = 1000;
-    const baseline = 184;
+    const width = chartSize.width;
+    const height = chartSize.height;
     const top = 20;
-    const horizontalPadding = 42;
+    const labelBand = 22;
+    const baseline = Math.max(top + 1, height - labelBand);
     const usableHeight = baseline - top;
+    if (width < 2 || height < 2) {
+      const points: ChartPoint[] = [];
+      return { width: 1, height: 1, baseline, points, linePath: "", areaPath: "", gridLines: [] };
+    }
+    const horizontalPadding = 10;
     const count = chartDays.length;
     const points = chartDays.map((day, index) => {
       const x =
@@ -123,8 +150,20 @@ export default function UsageView() {
       linePath && points.length > 1
         ? `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${baseline} L ${points[0].x.toFixed(2)} ${baseline} Z`
         : "";
-    return { width, baseline, points, linePath, areaPath };
-  }, [chartDays, maxDailyTokens]);
+    return {
+      width,
+      height,
+      baseline,
+      points,
+      linePath,
+      areaPath,
+      // 只保留最大值与半高两条参考线，给静止状态一个量级参照。
+      gridLines: [
+        { value: maxDailyTokens, y: top },
+        { value: maxDailyTokens / 2, y: baseline - usableHeight / 2 },
+      ],
+    };
+  }, [chartDays, maxDailyTokens, chartSize]);
 
   const maxModelTokens = useMemo(
     () => Math.max(1, ...(stats?.models.map((model) => model.totalTokens) ?? [])),
@@ -292,89 +331,95 @@ export default function UsageView() {
               </PanelHeader>
 
               <div
-                className="relative h-[260px] px-[18px] pt-4 pb-1 max-[600px]:h-[230px] max-[600px]:px-3"
+                className="relative h-[260px] max-[600px]:h-[230px]"
                 onMouseLeave={() => setActiveChartDay(null)}
               >
-                <svg
-                  className="block h-full w-full overflow-visible"
-                  viewBox={`0 0 ${lineChart.width} 220`}
-                  preserveAspectRatio="none"
-                  role="img"
-                  aria-label="每日 Token 使用趋势"
-                >
-                  <defs>
-                    <linearGradient id="usage-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#18181b" stopOpacity="0.18" />
-                      <stop offset="100%" stopColor="#18181b" stopOpacity="0.01" />
-                    </linearGradient>
-                  </defs>
-                  <line
-                    className="stroke-line-default stroke-1 [vector-effect:non-scaling-stroke]"
-                    x1="0"
-                    y1={lineChart.baseline}
-                    x2={lineChart.width}
-                    y2={lineChart.baseline}
-                  />
-                  {singleDay ? null : (
-                    <line
-                      className="stroke-line-default stroke-1 opacity-[0.48] [stroke-dasharray:3_4] [vector-effect:non-scaling-stroke]"
-                      x1="0"
-                      y1="102"
-                      x2={lineChart.width}
-                      y2="102"
-                    />
-                  )}
-                  {lineChart.areaPath ? <path className="fill-[url(#usage-chart-fill)]" d={lineChart.areaPath} /> : null}
-                  {lineChart.linePath ? (
-                    <path
-                      className="animate-line-enter fill-none stroke-accent stroke-[3] [stroke-linecap:round] [stroke-linejoin:round] [vector-effect:non-scaling-stroke]"
-                      d={lineChart.linePath}
-                    />
-                  ) : null}
-                  {lineChart.points.map((point) => {
-                    const active = activeChartDay === point.index;
-                    const isPeak = point.day.totalTokens === rangeSummary.peak.totalTokens && point.day.totalTokens > 0;
-                    return (
-                      <g key={point.day.date} onMouseEnter={() => setActiveChartDay(point.index)}>
+                <div ref={setChartNode} className="absolute inset-x-[18px] top-4 bottom-1 max-[600px]:inset-x-3">
+                  <svg
+                    className="block h-full w-full overflow-visible"
+                    viewBox={`0 0 ${lineChart.width} ${lineChart.height}`}
+                    role="img"
+                    aria-label="每日 Token 使用趋势"
+                  >
+                    <defs>
+                      <linearGradient id="usage-chart-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" className="text-accent" stopColor="currentColor" stopOpacity="0.26" />
+                        <stop offset="70%" className="text-accent" stopColor="currentColor" stopOpacity="0.06" />
+                        <stop offset="100%" className="text-accent" stopColor="currentColor" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    {lineChart.gridLines.map((grid) => (
+                      <g key={grid.value}>
                         <line
-                          className={cn(
-                            "stroke-line-default transition-opacity duration-150 [stroke-dasharray:2_3] [vector-effect:non-scaling-stroke]",
-                            active ? "opacity-100" : "opacity-0",
-                          )}
-                          x1={point.x}
-                          x2={point.x}
-                          y1={point.y}
-                          y2={lineChart.baseline}
+                          className="stroke-line-default stroke-1 opacity-60"
+                          x1="0"
+                          y1={grid.y}
+                          x2={lineChart.width}
+                          y2={grid.y}
                         />
-                        <circle className="cursor-crosshair fill-transparent" cx={point.x} cy={point.y} r="20" />
-                        <circle
-                          className={cn(
-                            "transition-[fill,stroke] duration-150 [vector-effect:non-scaling-stroke]",
-                            active || isPeak ? "fill-accent stroke-panel" : "fill-panel stroke-[#6b7280] stroke-2",
-                          )}
-                          cx={point.x}
-                          cy={point.y}
-                          r={active || singleDay ? 6 : 4.5}
-                        />
-                        {showDayLabel(point.index) ? (
-                          <text
-                            className="fill-ink-3 text-[11px] tabular-nums"
-                            x={point.x}
-                            y="211"
-                            textAnchor="middle"
-                          >
-                            {dayLabel(point.day.date)}
-                          </text>
-                        ) : null}
+                        <text
+                          className="fill-ink-3 text-[10px] tabular-nums"
+                          x="0"
+                          y={grid.y - 5}
+                          textAnchor="start"
+                        >
+                          {formatTokens(grid.value)}
+                        </text>
                       </g>
-                    );
-                  })}
+                    ))}
+                    <line
+                      className="stroke-line-default stroke-1"
+                      x1="0"
+                      y1={lineChart.baseline}
+                      x2={lineChart.width}
+                      y2={lineChart.baseline}
+                    />
+                    {lineChart.areaPath ? <path className="fill-[url(#usage-chart-fill)]" d={lineChart.areaPath} /> : null}
+                    {lineChart.linePath ? (
+                      <path
+                        pathLength={1}
+                        className="animate-line-enter fill-none stroke-accent stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
+                        d={lineChart.linePath}
+                      />
+                    ) : null}
+                    {lineChart.points.map((point) => {
+                      const active = activeChartDay === point.index;
+                      const isPeak =
+                        point.day.totalTokens === rangeSummary.peak.totalTokens && point.day.totalTokens > 0;
+                      return (
+                        <g key={point.day.date} onMouseEnter={() => setActiveChartDay(point.index)}>
+                          {active ? (
+                            <line
+                              className="stroke-line-strong stroke-1 [stroke-dasharray:2_3]"
+                              x1={point.x}
+                              x2={point.x}
+                              y1={point.y}
+                              y2={lineChart.baseline}
+                            />
+                          ) : null}
+                          <circle className="cursor-crosshair fill-transparent" cx={point.x} cy={point.y} r="18" />
+                          {active || isPeak || singleDay ? (
+                            <circle className="fill-accent stroke-panel" cx={point.x} cy={point.y} r={active ? 5 : 4} />
+                          ) : null}
+                          {showDayLabel(point.index) ? (
+                            <text
+                              className="fill-ink-3 text-[11px] tabular-nums"
+                              x={point.x}
+                              y={lineChart.height - 5}
+                              textAnchor="middle"
+                            >
+                              {dayLabel(point.day.date)}
+                            </text>
+                          ) : null}
+                        </g>
+                      );
+                    })}
                 </svg>
 
                 {activePoint ? (
                   <div
                     className="pointer-events-none absolute top-[11px] z-[1] grid min-w-[122px] -translate-x-1/2 gap-0.5 rounded-sm border border-line-default bg-panel/94 px-2.5 py-[7px] shadow-[0_6px_18px_rgb(24_24_27/10%)] backdrop-blur-[8px]"
-                    style={{ left: `${activePoint.x / 10}%` }}
+                    style={{ left: `${activePoint.x}px` }}
                   >
                     <strong className="text-caption tabular-nums text-ink">
                       {formatTokens(activePoint.day.totalTokens)}
@@ -393,6 +438,7 @@ export default function UsageView() {
                     <span className="text-[11px] whitespace-nowrap text-ink-3">{singleDay.date} · 当日用量</span>
                   </div>
                 ) : null}
+                </div>
               </div>
 
               <div className="flex justify-between border-t border-line bg-muted px-[18px] pt-2.5 pb-3.5 text-[10px]">
@@ -454,50 +500,33 @@ export default function UsageView() {
                   <h2>模型用量</h2>
                   <span className="count-mark">{stats.models.length}</span>
                 </PanelHeader>
-                <div className="max-h-[390px] overflow-auto">
-                  {stats.models.map((model, index) => {
-                    const isTop = index === 0 && stats.models.length > 1;
-                    return (
-                      <div
-                        key={model.name}
-                        className={cn(
-                          "grid grid-cols-[26px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-4 py-[11px] last:border-b-0 hover:bg-hover",
-                          isTop && "bg-accent-soft",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "font-mono text-[10px] font-semibold text-ink-3",
-                            index < 3 && "grid h-5 w-5 place-items-center rounded-full bg-active text-[9px]",
-                            index < 3 && isTop && "bg-accent text-inverse",
-                          )}
-                        >
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <div className="min-w-0">
-                          <strong className="mb-1.5 block truncate text-[11px] font-semibold text-ink">{model.name}</strong>
-                          <div className="h-[5px] overflow-hidden rounded-pill bg-active">
-                            <span
-                              className={cn(
-                                "block h-full min-w-[2px] rounded-[inherit]",
-                                isTop ? "bg-accent" : "bg-gradient-to-r from-[#9ca3af] to-[#4b5563]",
-                              )}
-                              style={{ width: `${(model.totalTokens / maxModelTokens) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="min-w-[78px] text-right">
-                          <strong className="block text-[11px] tabular-nums text-ink">
-                            {formatTokens(model.totalTokens)}
-                          </strong>
-                          <small className="mt-[3px] block text-[8px] tabular-nums text-ink-3">
-                            {model.requests} 次 · {formatCost(model.totalCost)}
-                          </small>
-                        </div>
+                <PanelBody className="grid max-h-[560px] gap-2 overflow-auto">
+                  {stats.models.map((model) => (
+                    <div
+                      key={model.name}
+                      className="relative flex min-h-[58px] items-center justify-between gap-3 overflow-hidden rounded-md border border-line bg-panel px-3.5 py-[11px]"
+                    >
+                      <div className="relative z-[1] min-w-0">
+                        <strong className="block truncate text-[11px] font-semibold text-ink">{model.name}</strong>
+                        <small className="mt-[3px] block text-[9px] tabular-nums text-ink-3">
+                          {model.requests} 次请求
+                        </small>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="relative z-[1] text-right">
+                        <strong className="block text-[11px] tabular-nums text-ink">
+                          {formatTokens(model.totalTokens)}
+                        </strong>
+                        <span className="mt-[3px] block text-[9px] tabular-nums text-ink-3">
+                          {formatCost(model.totalCost)}
+                        </span>
+                      </div>
+                      <span
+                        className="absolute bottom-0 left-0 h-0.5 rounded-r-pill bg-accent"
+                        style={{ width: `${(model.totalTokens / maxModelTokens) * 100}%` }}
+                      />
+                    </div>
+                  ))}
+                </PanelBody>
               </Panel>
 
               <Panel>
@@ -505,7 +534,7 @@ export default function UsageView() {
                   <h2>Provider 分布</h2>
                   <span className="count-mark">{stats.providers.length}</span>
                 </PanelHeader>
-                <PanelBody className="grid gap-2">
+                <PanelBody className="grid max-h-[560px] gap-2 overflow-auto">
                   {stats.providers.map((provider) => (
                     <div
                       key={provider.name}

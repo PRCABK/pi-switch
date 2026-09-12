@@ -67,7 +67,7 @@ Pi Switch 是 [Pi Coding Agent](https://pi.dev) 的 Windows 桌面管理工具�
    - **Base URL**：服务地址，例如 `https://api.example.com/v1`。留空则使用 Pi 内置地址。
    - **API Key**：建议用 `$ENV_VAR` 环境变量引用，避免保存明文密钥。
    - **自动添加 Authorization: Bearer 请求头**：按需勾选。
-   - **自定义 Headers（JSON）**：额外请求头。
+   - **自定义 Headers（JSON）**：额外请求头，可用「插入常用模板」下拉填入 Portkey 网关等模板；值支持 `$ENV_VAR` 环境变量引用与 `!command` 命令替换。
    - **模型配置（JSON 数组）**：该 Provider 下所有模型的完整 JSON 配置，可直接编辑。
 3. 点击「应用」保存到内存。此时**还未写入磁盘**，需点顶部「保存配置」才会真正生效。
 
@@ -104,14 +104,16 @@ Pi Switch 是 [Pi Coding Agent](https://pi.dev) 的 Windows 桌面管理工具�
 
 操作流程（两步式）：
 
-1. 在右栏 ACTIVE PROVIDER 工具栏点「从 /v1/models 获取」。
-2. 应用会用**当前 Provider 的 Base URL + apiKey** 请求 `{baseUrl}/models`，拉到该 Provider 支持的所有模型 ID。
+1. 有两个入口，拉取参数不同：
+   - **右栏 ACTIVE PROVIDER 工具栏**：用当前已选中 Provider 的 Base URL + apiKey 请求，导入结果合并回该 Provider。
+   - **新增 / 编辑 Provider 对话框**，模型配置（JSON 数组）上方的「从 /v1/models 获取」：用对话框中刚填的 Base URL + API Key 请求，导入结果写回该对话框的「模型配置」字段，点「应用」后再保存才会生效。
+2. 应用会请求 `{baseUrl}/models`，拉到该 Provider 支持的所有模型 ID。
    - 鉴权规则：只要 Provider 配置了明文 apiKey（非 `$`/`!` 环境变量引用），就会自动带上 `Authorization: Bearer` 请求头。
 3. **第一步——选择模型 ID**：在表格中勾选你想要的 model ID，点「搜索 pi.dev」。
 4. **第二步——按 Provider 分组选择**：应用会用每个选中 ID 去 pi.dev 精准搜索，把命中结果**按 Provider 分组**展示：
    - 每组标题有全选复选框，显示命中数量。
    - 你可以勾选具体要导入的模型。
-5. 点「批量导入」，把勾选的模型配置合并进当前选中 Provider，按模型 ID 去重。
+5. 点「批量导入」，把勾选的模型配置合并进目标位置（右栏入口为当前选中 Provider，对话框入口为当前编辑的模型配置字段），按模型 ID 去重。
 6. 导入完成后，回主页点「保存配置」写入磁盘。
 
 > 没拉到模型？检查 Base URL 是否正确（如 `https://api.example.com/v1` 或 `http://127.0.0.8317/v1`）、apiKey 是否有效、Provider 是否支持 OpenAI 兼容的 `/v1/models` 端点。

@@ -108,15 +108,17 @@
     }
   }
 
+  /* 配合图表路径上的 pathLength="1" 使用：dasharray 归一化后与路径实际长度无关。
+     固定数值的 dasharray 会在路径长于该数值时重复成虚线，且 fill-mode: both 会把虚线保留到动画结束后。 */
   @keyframes line-enter {
     from {
       opacity: 0;
-      stroke-dasharray: 1200;
-      stroke-dashoffset: 1200;
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
     }
     to {
       opacity: 1;
-      stroke-dasharray: 1200;
+      stroke-dasharray: 1;
       stroke-dashoffset: 0;
     }
   }

@@ -58,23 +58,18 @@ function toggleInSet(set: Set<string>, value: string, checked: boolean): Set<str
 }
 
 /**
- * 合并 Provider 配置：保留已有 Provider 的字段，来源模型的 api 与目标不一致时单独标注，
- * 模型按 id 去重覆盖。所有导入路径共用这一处逻辑。
+ * 合并 Provider 配置：保留已有 Provider 的字段，导入模型继承目标 Provider 的 API，
+ * 模型按 id 去重覆盖。来源模型本身明确配置的 api 仍会保留。
  */
 function mergeProvider(
   existing: Record<string, unknown>,
   source: Record<string, unknown>,
 ): Record<string, unknown> {
-  const sourceApi = typeof source.api === "string" ? source.api : "";
-  const targetApi = typeof existing.api === "string" ? existing.api : sourceApi;
   const sourceModels = Array.isArray(source.models) ? (source.models as Record<string, unknown>[]) : [];
   const existingModels = Array.isArray(existing.models) ? (existing.models as Record<string, unknown>[]) : [];
   const byId = new Map<string, Record<string, unknown>>();
   existingModels.forEach((model) => byId.set(String(model.id), model));
-  sourceModels.forEach((model) => {
-    const imported = sourceApi && targetApi && sourceApi !== targetApi ? { ...model, api: sourceApi } : model;
-    byId.set(String(model.id), imported);
-  });
+  sourceModels.forEach((model) => byId.set(String(model.id), model));
   return { ...source, ...existing, models: [...byId.values()] };
 }
 

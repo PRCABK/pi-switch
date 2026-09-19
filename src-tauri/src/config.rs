@@ -28,23 +28,36 @@ pub(crate) fn default_agent_dir() -> Result<PathBuf, String> {
         .ok_or_else(|| "无法确定当前用户主目录".to_string())
 }
 
+fn expand_path(value: String) -> Result<PathBuf, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("路径不能为空".to_string());
+    }
+    if trimmed == "~" || trimmed.starts_with("~/") || trimmed.starts_with("~\\") {
+        let home = dirs::home_dir().ok_or_else(|| "无法确定当前用户主目录".to_string())?;
+        let suffix = trimmed[1..].trim_start_matches(|character| character == '/' || character == '\\');
+        return Ok(home.join(suffix));
+    }
+    Ok(PathBuf::from(trimmed))
+}
+
 pub(crate) fn resolve_models_path(path: Option<String>) -> Result<PathBuf, String> {
     match path.filter(|value| !value.trim().is_empty()) {
-        Some(value) => Ok(PathBuf::from(value)),
+        Some(value) => expand_path(value),
         None => Ok(default_agent_dir()?.join("models.json")),
     }
 }
 
 pub(crate) fn resolve_sessions_dir(path: Option<String>) -> Result<PathBuf, String> {
     match path.filter(|value| !value.trim().is_empty()) {
-        Some(value) => Ok(PathBuf::from(value)),
+        Some(value) => expand_path(value),
         None => Ok(default_agent_dir()?.join("sessions")),
     }
 }
 
 pub(crate) fn resolve_skills_dir(path: Option<String>) -> Result<PathBuf, String> {
     match path.filter(|value| !value.trim().is_empty()) {
-        Some(value) => Ok(PathBuf::from(value)),
+        Some(value) => expand_path(value),
         None => Ok(default_agent_dir()?.join("skills")),
     }
 }
@@ -85,14 +98,29 @@ pub fn read_model_config(path: Option<String>) -> Result<ModelConfigFile, String
         .map_err(|error| format!("读取 {} 失败：{error}", path.display()))?;
     let config = serde_json::from_str(&text)
         .map_err(|error| format!("{} 不是有效的 JSON：{error}", path.display()))?;
+    validate_config(&config).map_err(|error| format!("{} 结构无效：{error}", path.display()))?;
     Ok(ModelConfigFile { path: path_text(&path), exists: true, config })
 }
 
 fn validate_config(config: &Value) -> Result<(), String> {
     let root = config.as_object().ok_or("模型配置顶层必须是 JSON 对象")?;
-    root.get("providers")
+    let providers = root
+        .get("providers")
         .and_then(Value::as_object)
         .ok_or("模型配置必须包含 providers 对象")?;
+    if providers.values().any(|provider| !provider.is_object()) {
+        return Err("providers 中的每个 Provider 都必须是 JSON 对象".to_string());
+    }
+    for provider in providers.values().filter_map(Value::as_object) {
+        if let Some(models) = provider.get("models") {
+            let Some(models) = models.as_array() else {
+                return Err("Provider 的 models 必须是 JSON 数组".to_string());
+            };
+            if models.iter().any(|model| !model.is_object()) {
+                return Err("Provider 的每个模型都必须是 JSON 对象".to_string());
+            }
+        }
+    }
     Ok(())
 }
 
@@ -113,9 +141,11 @@ pub fn save_model_config(path: Option<String>, config: Value) -> Result<Option<S
 
     let backup_path = if path.exists() {
         let stamp = Local::now().format("%Y%m%d-%H%M%S-%3f");
-        let backup = parent.join(format!("{file_name}.{stamp}.bak"));
-        fs::rename(&path, &backup)
-            .map_err(|error| format!("备份原配置失败：{error}"))?;
+        let backup = parent.join(format!("{file_name}.{stamp}-{}.bak", Uuid::new_v4().simple()));
+        fs::rename(&path, &backup).map_err(|error| {
+            let _ = fs::remove_file(&temp_path);
+            format!("备份原配置失败：{error}")
+        })?;
         Some(backup)
     } else {
         None

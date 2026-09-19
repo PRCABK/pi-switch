@@ -65,8 +65,12 @@ function mergeProvider(
   existing: Record<string, unknown>,
   source: Record<string, unknown>,
 ): Record<string, unknown> {
-  const sourceModels = Array.isArray(source.models) ? (source.models as Record<string, unknown>[]) : [];
-  const existingModels = Array.isArray(existing.models) ? (existing.models as Record<string, unknown>[]) : [];
+  const sourceModels = Array.isArray(source.models)
+    ? source.models.filter((model): model is Record<string, unknown> => Boolean(model && typeof model === "object"))
+    : [];
+  const existingModels = Array.isArray(existing.models)
+    ? existing.models.filter((model): model is Record<string, unknown> => Boolean(model && typeof model === "object"))
+    : [];
   const byId = new Map<string, Record<string, unknown>>();
   existingModels.forEach((model) => byId.set(String(model.id), model));
   sourceModels.forEach((model) => byId.set(String(model.id), model));
@@ -77,6 +81,15 @@ function displayApiKey(value: unknown): string {
   const key = String(value || "");
   if (!key) return "通过 Pi 登录或 CLI 提供";
   return key.startsWith("$") || key.startsWith("!") ? key : "已配置明文密钥（已隐藏）";
+}
+
+function parseHeaders(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const headers: Record<string, string> = {};
+  for (const [name, item] of Object.entries(value)) {
+    if (typeof item === "string" && name.trim()) headers[name] = item;
+  }
+  return Object.keys(headers).length ? headers : undefined;
 }
 
 export default function ModelsView() {
@@ -165,7 +178,7 @@ export default function ModelsView() {
       baseUrl: String(value.baseUrl || ""),
       apiKey: String(value.apiKey || ""),
       api: String(value.api || "openai-completions"),
-      authHeader: Boolean(value.authHeader),
+      authHeader: id ? (value.authHeader === undefined ? true : Boolean(value.authHeader)) : false,
       headers: JSON.stringify(value.headers || {}, null, 2),
       models: JSON.stringify(value.models || [], null, 2),
     });
@@ -184,8 +197,17 @@ export default function ModelsView() {
     }
     try {
       const headers = JSON.parse(editor.headers || "{}");
+      if (!headers || typeof headers !== "object" || Array.isArray(headers)) {
+        throw new Error("自定义 Headers 必须是 JSON 对象");
+      }
+      if (Object.values(headers).some((value) => typeof value !== "string")) {
+        throw new Error("自定义 Headers 的值必须是字符串");
+      }
       const models = JSON.parse(editor.models || "[]");
       if (!Array.isArray(models)) throw new Error("模型配置必须是数组");
+      if (models.some((model) => !model || typeof model !== "object" || Array.isArray(model))) {
+        throw new Error("模型配置中的每一项必须是 JSON 对象");
+      }
       const previous = editorOriginalId ? config.providers[editorOriginalId] || {} : {};
       const next: Record<string, unknown> = { ...previous, api: editor.api, models };
       if (editor.baseUrl.trim()) next.baseUrl = editor.baseUrl.trim();
@@ -274,6 +296,23 @@ export default function ModelsView() {
 
   function applyModel() {
     const id = modelForm.id.trim();
+    if (
+      !Number.isFinite(modelForm.contextWindow) ||
+      modelForm.contextWindow < 1 ||
+      !Number.isFinite(modelForm.maxTokens) ||
+      modelForm.maxTokens < 1 ||
+      !Number.isFinite(modelForm.costInput) ||
+      modelForm.costInput < 0 ||
+      !Number.isFinite(modelForm.costOutput) ||
+      modelForm.costOutput < 0 ||
+      !Number.isFinite(modelForm.costCacheRead) ||
+      modelForm.costCacheRead < 0 ||
+      !Number.isFinite(modelForm.costCacheWrite) ||
+      modelForm.costCacheWrite < 0
+    ) {
+      toast.warning("上下文窗口和最大输出 Tokens 必须是正数，价格必须是有效的非负数");
+      return;
+    }
     if (!id) {
       toast.warning("请输入模型 ID");
       return;
@@ -334,7 +373,13 @@ export default function ModelsView() {
   }
 
   /** 拉取 {baseUrl}/models 并打开向导，两个入口共用这里的状态重置与错误处理。 */
-  async function loadProviderModels(baseUrl: string, apiKey: string, fromEditor: boolean) {
+  async function loadProviderModels(
+    baseUrl: string,
+    apiKey: string,
+    headers: Record<string, string> | undefined,
+    authHeader: boolean,
+    fromEditor: boolean,
+  ) {
     setProviderModelsFromEditor(fromEditor);
     setProviderModelsVisible(true);
     setProviderModels([]);
@@ -344,7 +389,7 @@ export default function ModelsView() {
     setV1CheckedPaths(new Set());
     setProviderModelsLoading(true);
     try {
-      const result = await api.fetchProviderModels(baseUrl, apiKey);
+      const result = await api.fetchProviderModels(baseUrl, apiKey, headers, authHeader);
       setProviderModels(result);
       if (!result.length) toast.info("/v1/models 返回的列表为空");
     } catch (error) {
@@ -365,7 +410,13 @@ export default function ModelsView() {
       toast.warning("当前 Provider 未配置 Base URL");
       return;
     }
-    await loadProviderModels(baseUrl, String(selected.apiKey || ""), false);
+    await loadProviderModels(
+      baseUrl,
+      String(selected.apiKey || ""),
+      parseHeaders(selected.headers),
+      selected.authHeader === undefined ? true : Boolean(selected.authHeader),
+      false,
+    );
   }
 
   /** 新增或编辑 Provider 时用对话框里刚填的 Base URL 与 API Key 拉取，导入结果写回编辑器的模型配置字段。 */
@@ -375,7 +426,16 @@ export default function ModelsView() {
       toast.warning("请先填写 Base URL");
       return;
     }
-    await loadProviderModels(baseUrl, editor.apiKey, true);
+    let headers: Record<string, string> | undefined;
+    try {
+      const parsed = JSON.parse(editor.headers || "{}");
+      if (parsed && (typeof parsed !== "object" || Array.isArray(parsed))) throw new Error("不是 JSON 对象");
+      headers = parseHeaders(parsed);
+    } catch {
+      toast.warning("当前自定义 Headers 不是合法的 JSON 对象，请先修正后再查询");
+      return;
+    }
+    await loadProviderModels(baseUrl, editor.apiKey, headers, editor.authHeader, true);
   }
 
   async function v1SearchSelected() {
@@ -450,7 +510,10 @@ export default function ModelsView() {
         try {
           const preview = await api.fetchCatalogConfig(detailPath);
           const sourceId = Object.keys(preview.providers)[0];
-          draft = mergeProvider(draft, preview.providers[sourceId] || {});
+          if (!sourceId || !preview.providers[sourceId] || typeof preview.providers[sourceId] !== "object") {
+            throw new Error("目录配置缺少有效 Provider");
+          }
+          draft = mergeProvider(draft, preview.providers[sourceId] as Record<string, unknown>);
           imported += 1;
         } catch (error) {
           failed += 1;
@@ -533,7 +596,11 @@ export default function ModelsView() {
       return;
     }
     const sourceId = Object.keys(preview.providers)[0];
-    const source = preview.providers[sourceId] || {};
+    if (!sourceId || !preview.providers[sourceId] || typeof preview.providers[sourceId] !== "object") {
+      toast.error("目录配置缺少有效 Provider");
+      return;
+    }
+    const source = preview.providers[sourceId];
     const merged = mergeProvider(config.providers[target] || {}, source);
     if (importForm.baseUrl.trim()) merged.baseUrl = importForm.baseUrl.trim();
     if (importForm.apiKey.trim()) merged.apiKey = importForm.apiKey.trim();
@@ -563,7 +630,10 @@ export default function ModelsView() {
         try {
           const preview = await api.fetchCatalogConfig(row.detailPath);
           const sourceId = Object.keys(preview.providers)[0];
-          draft = mergeProvider(draft, preview.providers[sourceId] || {});
+          if (!sourceId || !preview.providers[sourceId] || typeof preview.providers[sourceId] !== "object") {
+            throw new Error("目录配置缺少有效 Provider");
+          }
+          draft = mergeProvider(draft, preview.providers[sourceId] as Record<string, unknown>);
           imported += 1;
         } catch (error) {
           failed += 1;

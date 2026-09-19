@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArrowDownToLine, MoreHorizontal, Pencil, Play, RefreshCw, Search, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { loadSettings } from "../settings";
@@ -33,6 +33,7 @@ export default function SessionsView() {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [keyword, setKeyword] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
+  const detailRequestRef = useRef(0);
 
   const filteredSessions = useMemo(() => {
     const query = keyword.trim().toLowerCase();
@@ -50,14 +51,18 @@ export default function SessionsView() {
   }, [activeOnly, detail]);
 
   async function selectSession(session: SessionSummary) {
+    const requestId = detailRequestRef.current + 1;
+    detailRequestRef.current = requestId;
     setSelectedPath(session.path);
     setDetailLoading(true);
     try {
-      setDetail(await api.getSessionDetail(session.path));
+      const settings = loadSettings();
+      const nextDetail = await api.getSessionDetail(session.path, settings.sessionsDir || undefined);
+      if (detailRequestRef.current === requestId) setDetail(nextDetail);
     } catch (error) {
-      toast.error(errorText(error));
+      if (detailRequestRef.current === requestId) toast.error(errorText(error));
     } finally {
-      setDetailLoading(false);
+      if (detailRequestRef.current === requestId) setDetailLoading(false);
     }
   }
 
@@ -65,8 +70,12 @@ export default function SessionsView() {
     setLoading(true);
     try {
       const previous = keepSelection ? selectedPath : "";
-      const list = await api.listSessions(loadSettings().sessionsDir || undefined);
+      const result = await api.listSessions(loadSettings().sessionsDir || undefined);
+      const list = result.sessions;
       setSessions(list);
+      if (result.warnings.length) {
+        toast.warning(`有 ${result.warnings.length} 个 Session 文件无法解析`);
+      }
       if (previous && list.some((session) => session.path === previous)) {
         await selectSession(list.find((session) => session.path === previous)!);
       } else if (list.length) {
@@ -108,7 +117,7 @@ export default function SessionsView() {
     });
     if (name === null) return;
     try {
-      await api.renameSession(detail.summary.path, name);
+      await api.renameSession(detail.summary.path, name, loadSettings().sessionsDir || undefined);
       await loadSessions(true);
       toast.success("会话名称已更新");
     } catch (error) {
@@ -125,7 +134,7 @@ export default function SessionsView() {
     });
     if (!confirmed) return;
     try {
-      await api.deleteSession(detail.summary.path);
+      await api.deleteSession(detail.summary.path, loadSettings().sessionsDir || undefined);
       setSelectedPath("");
       await loadSessions(false);
       toast.success("会话已删除");
@@ -137,7 +146,12 @@ export default function SessionsView() {
   async function exportSession() {
     if (!detail) return;
     try {
-      const result = await api.exportSession(detail.summary.path, loadSettings().piPath || undefined);
+      const settings = loadSettings();
+      const result = await api.exportSession(
+        detail.summary.path,
+        settings.piPath || undefined,
+        settings.sessionsDir || undefined,
+      );
       if (result.success) toast.success(`已导出到 ${result.output}`);
       else toast.error(result.output || "导出失败");
     } catch (error) {

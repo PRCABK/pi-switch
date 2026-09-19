@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import packageInfo from "../../package.json";
 import { BrainCircuit, ChartColumn, MessageSquareText, Package, Puzzle, Settings2 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -47,7 +48,7 @@ export function Sidebar() {
       <div className="sidebar-footer">
         <span className="status-dot" />
         <span>LOCAL / READY</span>
-        <span className="ml-auto tabular-nums">v0.3.0</span>
+        <span className="ml-auto tabular-nums">v{packageInfo.version}</span>
       </div>
     </aside>
   );

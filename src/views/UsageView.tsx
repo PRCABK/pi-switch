@@ -91,7 +91,11 @@ export default function UsageView() {
   async function loadUsage() {
     setLoading(true);
     try {
-      setStats(await api.getUsageStats(loadSettings().sessionsDir || undefined));
+      const result = await api.getUsageStats(loadSettings().sessionsDir || undefined);
+      setStats(result);
+      if (result.warnings.length) {
+        toast.warning(`有 ${result.warnings.length} 个 Session 文件未计入用量统计`);
+      }
     } catch (error) {
       toast.error(errorText(error));
     } finally {
@@ -419,7 +423,7 @@ export default function UsageView() {
                 {activePoint ? (
                   <div
                     className="pointer-events-none absolute top-[11px] z-[1] grid min-w-[122px] -translate-x-1/2 gap-0.5 rounded-sm border border-line-default bg-panel/94 px-2.5 py-[7px] shadow-[0_6px_18px_rgb(24_24_27/10%)] backdrop-blur-[8px]"
-                    style={{ left: `${activePoint.x}px` }}
+                    style={{ left: `${activePoint.x + (chartNode?.offsetLeft ?? 0)}px` }}
                   >
                     <strong className="text-caption tabular-nums text-ink">
                       {formatTokens(activePoint.day.totalTokens)}

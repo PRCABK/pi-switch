@@ -44,9 +44,13 @@ export interface SessionSummary {
   totalCost: number;
 }
 
+export interface SessionList {
+  sessions: SessionSummary[];
+  warnings: string[];
+}
+
 export interface DisplayEntry {
   id: string;
-  parentId?: string;
   entryType: string;
   timestamp: string;
   active: boolean;
@@ -137,4 +141,5 @@ export interface UsageStats {
   daily: DailyUsage[];
   models: UsageBreakdown[];
   providers: UsageBreakdown[];
+  warnings: string[];
 }

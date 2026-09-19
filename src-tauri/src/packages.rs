@@ -54,8 +54,6 @@ fn classify(source: &str) -> (String, String) {
         ("git", source.to_string())
     } else if source.starts_with("./") || source.starts_with("../") || source.starts_with('/') {
         ("local", source.to_string())
-    } else if source.starts_with("npm:") {
-        ("npm", source.to_string())
     } else {
         // Fallback: treat unknown specs as local.
         ("local", source.to_string())
@@ -85,19 +83,24 @@ pub fn list_packages(pi_path: Option<String>) -> Result<Vec<InstalledPackage>, S
     let _ = pi_path; // kept for API symmetry; not used for listing
     let mut result = Vec::new();
     for entry in read_packages_array(&settings) {
-        let (source, pinned) = match &entry {
-            Value::String(string) => (string.clone(), false),
-            Value::Object(object) => {
-                let source = object
-                    .get("source")
-                    .and_then(|value| value.as_str())
-                    .unwrap_or_default()
-                    .to_string();
-                // Pinned npm specs include a version, git specs include a ref.
-                let pinned = source.contains('@');
-                (source, pinned)
-            }
+        let source = match &entry {
+            Value::String(string) => string.clone(),
+            Value::Object(object) => object
+                .get("source")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_string(),
             _ => continue,
+        };
+        let (kind, _) = classify(&source);
+        let pinned = match kind.as_str() {
+            "npm" => {
+                let package = source.strip_prefix("npm:").unwrap_or(&source);
+                let at = package.rfind('@');
+                at.is_some_and(|index| index > 0 && index + 1 < package.len())
+            }
+            "git" => source.contains('#'),
+            _ => false,
         };
         if source.is_empty() {
             continue;

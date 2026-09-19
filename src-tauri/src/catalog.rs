@@ -1,6 +1,7 @@
 use scraper::{Html, Selector};
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::HashMap;
 
 const CATALOG_ORIGIN: &str = "https://pi.dev";
 
@@ -25,16 +26,44 @@ fn join_base_url(base_url: &str) -> Result<String, String> {
     }
 }
 
+fn resolve_header_value(value: &str) -> Result<String, String> {
+    let trimmed = value.trim();
+    let variable = trimmed.strip_prefix('$').or_else(|| trimmed.strip_prefix('!'));
+    match variable {
+        Some(name) if !name.is_empty() => std::env::var(name)
+            .map_err(|_| format!("未找到环境变量 {name}")),
+        Some(_) => Err("Provider Header 的环境变量名不能为空".to_string()),
+        None => Ok(trimmed.to_string()),
+    }
+}
+
 #[tauri::command]
-pub async fn fetch_provider_models(base_url: String, api_key: Option<String>) -> Result<Vec<ProviderModel>, String> {
+pub async fn fetch_provider_models(
+    base_url: String,
+    api_key: Option<String>,
+    headers: Option<HashMap<String, String>>,
+    auth_header: Option<bool>,
+) -> Result<Vec<ProviderModel>, String> {
     let url = join_base_url(&base_url)?;
+    let has_authorization_header = headers.as_ref().is_some_and(|headers| {
+        headers
+            .keys()
+            .any(|name| name.eq_ignore_ascii_case("authorization"))
+    });
     let mut request = client()?.get(&url);
-    let key = api_key.unwrap_or_default();
-    let key = key.trim();
-    // 只要存在明文 apiKey（非空、非环境变量引用）就自动带 Authorization: Bearer。
-    // 不依赖 authHeader 开关：多数 Provider 配置不显式写 authHeader，但 /v1/models 仍需鉴权。
-    if !key.is_empty() && !key.starts_with('$') && !key.starts_with('!') {
-        request = request.header("Authorization", format!("Bearer {key}"));
+    if let Some(headers) = headers {
+        for (name, value) in headers {
+            if name.trim().is_empty() {
+                continue;
+            }
+            request = request.header(name.trim(), resolve_header_value(&value)?);
+        }
+    }
+    if auth_header.unwrap_or(true) && !has_authorization_header {
+        let key = resolve_header_value(&api_key.unwrap_or_default())?;
+        if !key.is_empty() {
+            request = request.header("Authorization", format!("Bearer {key}"));
+        }
     }
     let response = request.send().await.map_err(|error| format!("请求 /v1/models 失败：{error}"))?;
     let status = response.status();

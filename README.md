@@ -5,7 +5,7 @@ Pi Switch 是一个面向 [Pi Coding Agent](https://pi.dev) 的 Windows 桌面�
 - 产品官网：<https://prcabk.github.io/pi-switch/>
 - 最新版本：<https://github.com/PRCABK/pi-switch/releases/latest>
 - 源代码：<https://github.com/PRCABK/pi-switch>
-- 当前版本：`0.2.6`
+- 当前版本：`0.3.10`
 
 ## 能做什么
 

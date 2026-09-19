@@ -52,6 +52,7 @@ pub struct UsageStats {
     pub daily: Vec<DailyUsage>,
     pub models: Vec<UsageBreakdown>,
     pub providers: Vec<UsageBreakdown>,
+    pub warnings: Vec<String>,
 }
 
 fn number(usage: &Value, keys: &[&str]) -> u64 {
@@ -100,12 +101,18 @@ fn add_breakdown(target: &mut UsageBreakdown, value: &UsageTotals) {
     target.requests += value.requests;
 }
 
-fn read_values(path: &Path) -> Vec<Value> {
-    let Ok(file) = fs::File::open(path) else { return Vec::new() };
+fn read_values(path: &Path) -> Result<Vec<Value>, String> {
+    let file = fs::File::open(path).map_err(|error| format!("读取 {} 失败：{error}", path.display()))?;
     BufReader::new(file)
         .lines()
-        .filter_map(Result::ok)
-        .filter_map(|line| serde_json::from_str(&line).ok())
+        .enumerate()
+        .filter_map(|(index, line)| match line {
+            Ok(line) if line.trim().is_empty() => None,
+            Ok(line) => Some(serde_json::from_str(&line).map_err(|error| {
+                format!("{} 第 {} 行不是有效 JSON：{error}", path.display(), index + 1)
+            })),
+            Err(error) => Some(Err(format!("读取 {} 失败：{error}", path.display()))),
+        })
         .collect()
 }
 
@@ -153,6 +160,7 @@ pub fn get_usage_stats(sessions_dir: Option<String>) -> Result<UsageStats, Strin
     let mut daily = BTreeMap::<String, DailyUsage>::new();
     let mut models = HashMap::<String, UsageBreakdown>::new();
     let mut providers = HashMap::<String, UsageBreakdown>::new();
+    let mut warnings = Vec::new();
 
     if directory.exists() {
         for entry in WalkDir::new(&directory)
@@ -161,7 +169,13 @@ pub fn get_usage_stats(sessions_dir: Option<String>) -> Result<UsageStats, Strin
             .filter_map(Result::ok)
             .filter(|entry| entry.file_type().is_file() && entry.path().extension().and_then(|value| value.to_str()) == Some("jsonl"))
         {
-            let values = read_values(entry.path());
+            let values = match read_values(entry.path()) {
+                Ok(values) => values,
+                Err(error) => {
+                    warnings.push(error);
+                    continue;
+                }
+            };
             if values.is_empty() {
                 continue;
             }
@@ -253,5 +267,6 @@ pub fn get_usage_stats(sessions_dir: Option<String>) -> Result<UsageStats, Strin
         daily: daily.into_values().collect(),
         models: model_values,
         providers: provider_values,
+        warnings,
     })
 }

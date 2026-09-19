@@ -31,6 +31,13 @@ pub struct SessionSummary {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SessionList {
+    pub sessions: Vec<SessionSummary>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionDetail {
     pub summary: SessionSummary,
     pub entries: Vec<DisplayEntry>,
@@ -58,6 +65,24 @@ fn path_text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+pub(crate) fn resolve_session_path(session_path: &str, sessions_dir: Option<String>) -> Result<PathBuf, String> {
+    let root = resolve_sessions_dir(sessions_dir)?;
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("Session 目录不可用：{error}"))?;
+    let path = PathBuf::from(session_path.trim());
+    if path.extension().and_then(|value| value.to_str()) != Some("jsonl") || !path.is_file() {
+        return Err("Session 文件不存在或格式不正确".to_string());
+    }
+    let path = path
+        .canonicalize()
+        .map_err(|error| format!("解析 Session 路径失败：{error}"))?;
+    if !path.starts_with(&root) {
+        return Err("Session 文件不在当前 Session 目录中".to_string());
+    }
+    Ok(path)
+}
+
 fn read_lines(path: &Path) -> Result<Vec<Value>, String> {
     let file = fs::File::open(path).map_err(|error| format!("读取 {} 失败：{error}", path.display()))?;
     BufReader::new(file)
@@ -71,6 +96,24 @@ fn read_lines(path: &Path) -> Result<Vec<Value>, String> {
             Err(error) => Some(Err(format!("读取 {} 失败：{error}", path.display()))),
         })
         .collect()
+}
+
+fn usage_number(usage: &Value, keys: &[&str]) -> u64 {
+    keys.iter()
+        .find_map(|key| usage.get(*key).and_then(Value::as_u64))
+        .unwrap_or(0)
+}
+
+fn usage_total(usage: &Value) -> u64 {
+    let reported = usage_number(usage, &["totalTokens", "total"]);
+    if reported > 0 {
+        reported
+    } else {
+        usage_number(usage, &["inputTokens", "input"])
+            + usage_number(usage, &["outputTokens", "output"])
+            + usage_number(usage, &["cacheReadTokens", "cacheRead"])
+            + usage_number(usage, &["cacheWriteTokens", "cacheWrite"])
+    }
 }
 
 fn content_text(content: Option<&Value>, block_type: &str) -> String {
@@ -148,14 +191,14 @@ fn summary_from_values(path: &Path, values: &[Value]) -> Result<SessionSummary, 
                     model = message.get("model").and_then(Value::as_str).map(str::to_string).or(model);
                     provider = message.get("provider").and_then(Value::as_str).map(str::to_string).or(provider);
                     if let Some(usage) = message.get("usage") {
-                        total_tokens += usage.get("totalTokens").and_then(Value::as_u64).unwrap_or(0);
+                        total_tokens += usage_total(usage);
                         total_cost += usage.pointer("/cost/total").and_then(Value::as_f64).unwrap_or(0.0);
                     }
                 }
             }
             Some("compaction") | Some("branch_summary") => {
                 if let Some(usage) = entry.get("usage") {
-                    total_tokens += usage.get("totalTokens").and_then(Value::as_u64).unwrap_or(0);
+                    total_tokens += usage_total(usage);
                     total_cost += usage.pointer("/cost/total").and_then(Value::as_f64).unwrap_or(0.0);
                 }
             }
@@ -185,18 +228,32 @@ fn load_summary(path: &Path) -> Result<SessionSummary, String> {
 }
 
 #[tauri::command]
-pub fn list_sessions(sessions_dir: Option<String>) -> Result<Vec<SessionSummary>, String> {
+pub fn list_sessions(sessions_dir: Option<String>) -> Result<SessionList, String> {
     let directory = resolve_sessions_dir(sessions_dir)?;
-    if !directory.exists() { return Ok(Vec::new()); }
-    let mut sessions = WalkDir::new(&directory)
+    if !directory.exists() {
+        return Ok(SessionList {
+            sessions: Vec::new(),
+            warnings: Vec::new(),
+        });
+    }
+    let mut sessions = Vec::new();
+    let mut warnings = Vec::new();
+    for entry in WalkDir::new(&directory)
         .follow_links(false)
         .into_iter()
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file() && entry.path().extension().and_then(|ext| ext.to_str()) == Some("jsonl"))
-        .filter_map(|entry| load_summary(entry.path()).ok())
-        .collect::<Vec<_>>();
+        .filter(|entry| {
+            entry.file_type().is_file()
+                && entry.path().extension().and_then(|ext| ext.to_str()) == Some("jsonl")
+        })
+    {
+        match load_summary(entry.path()) {
+            Ok(summary) => sessions.push(summary),
+            Err(error) => warnings.push(error),
+        }
+    }
     sessions.sort_by(|left, right| right.modified_at.cmp(&left.modified_at));
-    Ok(sessions)
+    Ok(SessionList { sessions, warnings })
 }
 
 fn active_ids(values: &[Value]) -> HashSet<String> {
@@ -303,9 +360,8 @@ fn display_entry(entry: &Value, active: bool) -> Option<DisplayEntry> {
 }
 
 #[tauri::command]
-pub fn get_session_detail(session_path: String) -> Result<SessionDetail, String> {
-    let path = PathBuf::from(&session_path);
-    if !path.is_file() { return Err("Session 文件不存在".to_string()); }
+pub fn get_session_detail(session_path: String, sessions_dir: Option<String>) -> Result<SessionDetail, String> {
+    let path = resolve_session_path(&session_path, sessions_dir)?;
     let values = read_lines(&path)?;
     let active = active_ids(&values);
     let summary = summary_from_values(&path, &values)?;
@@ -319,9 +375,12 @@ pub fn get_session_detail(session_path: String) -> Result<SessionDetail, String>
 }
 
 #[tauri::command]
-pub fn rename_session(session_path: String, name: String) -> Result<(), String> {
-    let path = PathBuf::from(&session_path);
-    if !path.is_file() { return Err("Session 文件不存在".to_string()); }
+pub fn rename_session(session_path: String, name: String, sessions_dir: Option<String>) -> Result<(), String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Session 名称不能为空".to_string());
+    }
+    let path = resolve_session_path(&session_path, sessions_dir)?;
     let values = read_lines(&path)?;
     let parent_id = values.iter().rev().find_map(|entry| entry.get("id").and_then(Value::as_str));
     let id = Uuid::new_v4().simple().to_string()[..8].to_string();
@@ -339,11 +398,8 @@ pub fn rename_session(session_path: String, name: String) -> Result<(), String> 
 }
 
 #[tauri::command]
-pub fn delete_session(session_path: String) -> Result<(), String> {
-    let path = PathBuf::from(&session_path);
-    if !path.is_file() || path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
-        return Err("Session 文件不存在或格式不正确".to_string());
-    }
+pub fn delete_session(session_path: String, sessions_dir: Option<String>) -> Result<(), String> {
+    let path = resolve_session_path(&session_path, sessions_dir)?;
     load_summary(&path)?;
     fs::remove_file(&path).map_err(|error| format!("删除 Session 失败：{error}"))
 }
